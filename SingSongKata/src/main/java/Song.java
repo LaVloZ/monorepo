@@ -1,3 +1,4 @@
+import toto.Animal;
 import toto.Animals;
 
 class Song {
@@ -68,7 +69,7 @@ class Song {
                 I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
                 THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.cat() + ";\n" +
-                rhymeCat(animals) + "\n" +
+                Animal.rhymeCat(animals) + "\n" +
                 SHE_SWALLOWED_THE + animals.cat() + " to catch the " + animals.bird() + ",\n" +
                 SHE_SWALLOWED_THE + animals.bird() + " to catch the " + animals.spider() + ",\n" +
                 SHE_SWALLOWED_THE + animals.spider() + " to catch the " + animals.fly() + ";\n" +
@@ -96,7 +97,4 @@ class Song {
         return song;
     }
 
-    private static String rhymeCat(Animals animals) {
-        return "Fancy that to swallow a " + animals.cat() + "!";
-    }
 }

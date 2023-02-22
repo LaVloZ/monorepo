@@ -1,4 +1,4 @@
 package toto;
 
-public record Animals(String fly, String spider, String bird, String cat, String dog, String cow, String horse) {
+public record Animals(String fly, String spider, String bird, Animal cat, String dog, String cow, String horse) {
 }
