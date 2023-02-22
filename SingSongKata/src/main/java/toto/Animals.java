@@ -68,7 +68,7 @@ public final class Animals {
                 song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n";
 
-                song = getString(song, 5, animals.size() - 1
+                song = getString(song, 5, animals.size() - 1);
 
                 song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n";
                 song += animals.get(6).rhyme();
