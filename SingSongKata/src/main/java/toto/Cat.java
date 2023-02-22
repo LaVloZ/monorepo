@@ -1,15 +1,15 @@
 package toto;
 
-public class Animal {
+public class Cat {
     private final String name;
     private String rhyme;
 
-    public Animal(String cat, String rhyme) {
+    public Cat(String cat, String rhyme) {
         this.name = cat;
         this.rhyme = rhyme;
     }
 
-    public Animal(String cat) {
+    public Cat(String cat) {
         this.name = cat;
         this.rhyme = "";
     }
