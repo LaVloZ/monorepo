@@ -1,5 +1,7 @@
 package toto;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public final class Animals {
@@ -9,22 +11,10 @@ public final class Animals {
     public static final String I_DON_T_KNOW_WHY_SHE_SWALLOWED_A = "I don't know why she swallowed a ";
     public static final String TO_CATCH_THE = " to catch the ";
     public static final String PERHAPS_SHE_LL_DIE = " - perhaps she'll die!";
-    private final Animal fly;
-    private final Animal spider;
-    private final Animal bird;
-    private final Animal cat;
-    private final Animal dog;
-    private final Animal cow;
-    private final Animal horse;
+    private final List<Animal> animals;
 
-    public Animals(Animal fly, Animal spider, Animal bird, Animal cat, Animal dog, Animal cow, Animal horse) {
-        this.fly = fly;
-        this.spider = spider;
-        this.bird = bird;
-        this.cat = cat;
-        this.dog = dog;
-        this.cow = cow;
-        this.horse = horse;
+    public Animals(Animal... animals) {
+        this.animals = Arrays.asList(animals);
     }
 
     public String sing() {
@@ -71,62 +61,30 @@ public final class Animals {
     }
 
     public Animal fly() {
-        return fly;
+        return animals.get(0);
     }
 
     public Animal spider() {
-        return spider;
+        return animals.get(1);
     }
 
     public Animal bird() {
-        return bird;
+        return animals.get(2);
     }
 
     public Animal cat() {
-        return cat;
+        return animals.get(3);
     }
 
     public Animal dog() {
-        return dog;
+        return animals.get(4);
     }
 
     public Animal cow() {
-        return cow;
+        return animals.get(5);
     }
 
     public Animal horse() {
-        return horse;
+        return animals.get(6);
     }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) return true;
-        if (obj == null || obj.getClass() != this.getClass()) return false;
-        var that = (Animals) obj;
-        return Objects.equals(this.fly, that.fly) &&
-                Objects.equals(this.spider, that.spider) &&
-                Objects.equals(this.bird, that.bird) &&
-                Objects.equals(this.cat, that.cat) &&
-                Objects.equals(this.dog, that.dog) &&
-                Objects.equals(this.cow, that.cow) &&
-                Objects.equals(this.horse, that.horse);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(fly, spider, bird, cat, dog, cow, horse);
-    }
-
-    @Override
-    public String toString() {
-        return "Animals[" +
-                "fly=" + fly + ", " +
-                "spider=" + spider + ", " +
-                "bird=" + bird + ", " +
-                "cat=" + cat + ", " +
-                "dog=" + dog + ", " +
-                "cow=" + cow + ", " +
-                "horse=" + horse + ']';
-    }
-
 }

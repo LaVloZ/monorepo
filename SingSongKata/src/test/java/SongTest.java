@@ -52,7 +52,6 @@ class SongTest {
                               new Animal("cat", "Fancy that to swallow a {name}!"),
                               new Animal("dog", "What a hog, to swallow a {name}!"),
                               new Animal("cow", "I don't know how she swallowed a {name}!"),
-                              new Animal("horse", "")).sing(
-      ));
+                              new Animal("horse", "")).sing());
   }
 }
