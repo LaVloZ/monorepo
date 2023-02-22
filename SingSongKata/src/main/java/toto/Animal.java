@@ -15,7 +15,7 @@ public class Animal {
     }
 
     public String rhyme() {
-        return rhyme.replaceAll("\\{name\\}", name);
+        return rhyme.replaceAll("\\{name\\}", name) + (rhyme.isBlank() ? "" : "\n");
     }
 
     @Override
