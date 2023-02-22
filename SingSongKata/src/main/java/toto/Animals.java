@@ -25,7 +25,7 @@ public final class Animals {
     }
 
     private String refrain(String song, int index, int lastIndex) {
-        if (index == 6) {
+        if (index == lastIndex) {
             song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + "..." + "\n" +
                     animals.get(index).rhyme();
         }
