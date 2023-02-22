@@ -54,20 +54,10 @@ public final class Animals {
                         break;
                     song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
                 }
-                song +=  I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
-                "\n" +
-
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(4) + ";\n" +
-                animals.get(4).rhyme();
-
-                for (int i = 4; i > 0; i--) {
-                    if(i == 6)
-                        break;
-                    song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
-                }
-                song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
+        song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n";
 
+                song = getString(song, 4, animals.size() - 1);
                 song = getString(song, 5, animals.size() - 1);
 
                 song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n";
