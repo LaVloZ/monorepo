@@ -68,6 +68,12 @@ public final class Animals {
                 song += "\n";
 
                 song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n";
+                song += animals.get(6).rhyme();
+                for (int i = 5; i > 0; i--) {
+                    if(i == 6) {
+                        song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
+                    }
+                }
                 song += "...She's dead, of course!";
 
         return song;
