@@ -25,29 +25,35 @@ public final class Animals {
                 song = getString(song, 4, animals.size() - 1);
                 song = getString(song, 5, animals.size() - 1);
 
-                song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n";
-                song += animals.get(6).rhyme();
-                for (int i = 6; i > 0; i--) {
-                    if(i == 6)
-                        break;
-                    song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
-                }
-                song += "...She's dead, of course!";
+                song = getString(song, 6, animals.size() - 1);
 
         return song;
     }
 
     private String getString(String song, int index, int lastIndex) {
-        song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + (index == 0 ? '.' : ';') + "\n" +
-        animals.get(index).rhyme();
+        if (index == 6) {
+            song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + "..." + "\n" +
+                    animals.get(index).rhyme();
+        }
+        else if (index == 0) {
+            song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + '.' + "\n" +
+                    animals.get(index).rhyme();
+        } else {
+            song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + ';' + "\n" +
+                    animals.get(index).rhyme();
+        }
 
         for (int i = index; i > 0; i--) {
             if(i == lastIndex)
                 break;
             song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
         }
-        song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n";
-        song += "\n";
+        if (index == lastIndex)
+            song += "...She's dead, of course!";
+        else {
+            song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n";
+            song += "\n";
+        }
         return song;
     }
 
