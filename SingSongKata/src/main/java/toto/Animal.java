@@ -7,8 +7,8 @@ public class Animal {
         this.name = cat;
     }
 
-    public static String rhymeCat(Animals animals) {
-        return "Fancy that to swallow a " + animals.cat() + "!";
+    public String rhymeCat() {
+        return "Fancy that to swallow a " + name + "!";
     }
 
     @Override
