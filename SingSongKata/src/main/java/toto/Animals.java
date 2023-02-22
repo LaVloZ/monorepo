@@ -18,19 +18,18 @@ public final class Animals {
 
     public String sing() {
         String song = "";
-                song = getString(song, 0, animals.size() - 1);
-                song = getString(song, 1, animals.size() - 1);
-                song = getString(song, 2, animals.size() - 1);
-                song = getString(song, 3, animals.size() - 1);
-                song = getString(song, 4, animals.size() - 1);
-                song = getString(song, 5, animals.size() - 1);
-
-                song = getString(song, 6, animals.size() - 1);
+                song = refrain(song, 0, animals.size() - 1);
+                song = refrain(song, 1, animals.size() - 1);
+                song = refrain(song, 2, animals.size() - 1);
+                song = refrain(song, 3, animals.size() - 1);
+                song = refrain(song, 4, animals.size() - 1);
+                song = refrain(song, 5, animals.size() - 1);
+                song = refrain(song, 6, animals.size() - 1);
 
         return song;
     }
 
-    private String getString(String song, int index, int lastIndex) {
+    private String refrain(String song, int index, int lastIndex) {
         if (index == 6) {
             song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + "..." + "\n" +
                     animals.get(index).rhyme();
