@@ -7,7 +7,7 @@ public class Animal {
         this.name = cat;
     }
 
-    public String rhymeCat() {
+    public String rhyme() {
         return "Fancy that to swallow a " + name + "!";
     }
 
