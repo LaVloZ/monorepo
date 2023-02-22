@@ -25,17 +25,16 @@ public final class Animals {
     }
 
     private String refrain(String song, int index, int lastIndex) {
+        String separator = ";";
         if (index == lastIndex) {
-            song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + "..." + "\n" +
-                    animals.get(index).rhyme();
+            separator = "...";
         }
         else if (index == 0) {
-            song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + '.' + "\n" +
-                    animals.get(index).rhyme();
-        } else {
-            song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + ';' + "\n" +
-                    animals.get(index).rhyme();
+            separator = ".";
         }
+
+        song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + separator + "\n" +
+                animals.get(index).rhyme();
 
         for (int i = index; i > 0; i--) {
             if(i == lastIndex)
