@@ -2,7 +2,6 @@ package toto;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public final class Animals {
 
@@ -18,73 +17,46 @@ public final class Animals {
     }
 
     public String sing() {
-        return THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + fly() + ".\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + fly() + PERHAPS_SHE_LL_DIE + "\n" +
+        return THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(0) + ".\n" +
+                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + spider() + ";\n" +
-                spider().rhyme() + "\n" +
-                SHE_SWALLOWED_THE + spider() + TO_CATCH_THE + fly() + ";\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + fly() + PERHAPS_SHE_LL_DIE + "\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(1) + ";\n" +
+                animals.get(1).rhyme() + "\n" +
+                SHE_SWALLOWED_THE + animals.get(1) + TO_CATCH_THE + animals.get(0) + ";\n" +
+                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + bird() + ";\n" +
-                bird().rhyme() + "\n" +
-                SHE_SWALLOWED_THE + bird() + TO_CATCH_THE + spider() + ",\n" +
-                SHE_SWALLOWED_THE + spider() + TO_CATCH_THE + fly() + ";\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + fly() + PERHAPS_SHE_LL_DIE + "\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(2) + ";\n" +
+                animals.get(2).rhyme() + "\n" +
+                SHE_SWALLOWED_THE + animals.get(2) + TO_CATCH_THE + animals.get(1) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(1) + TO_CATCH_THE + animals.get(0) + ";\n" +
+                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + cat() + ";\n" +
-                cat().rhyme() + "\n" +
-                SHE_SWALLOWED_THE + cat() + TO_CATCH_THE + bird() + ",\n" +
-                SHE_SWALLOWED_THE + bird() + TO_CATCH_THE + spider() + ",\n" +
-                SHE_SWALLOWED_THE + spider() + TO_CATCH_THE + fly() + ";\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + fly() + PERHAPS_SHE_LL_DIE + "\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(3) + ";\n" +
+                animals.get(3).rhyme() + "\n" +
+                SHE_SWALLOWED_THE + animals.get(3) + TO_CATCH_THE + animals.get(2) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(2) + TO_CATCH_THE + animals.get(1) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(1) + TO_CATCH_THE + animals.get(0) + ";\n" +
+                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + dog() + ";\n" +
-                dog().rhyme() + "\n" +
-                SHE_SWALLOWED_THE + dog() + TO_CATCH_THE + cat() + ",\n" +
-                SHE_SWALLOWED_THE + cat() + TO_CATCH_THE + bird() + ",\n" +
-                SHE_SWALLOWED_THE + bird() + TO_CATCH_THE + spider() + ",\n" +
-                SHE_SWALLOWED_THE + spider() + TO_CATCH_THE + fly() + ";\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + fly() + PERHAPS_SHE_LL_DIE + "\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(4) + ";\n" +
+                animals.get(4).rhyme() + "\n" +
+                SHE_SWALLOWED_THE + animals.get(4) + TO_CATCH_THE + animals.get(3) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(3) + TO_CATCH_THE + animals.get(2) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(2) + TO_CATCH_THE + animals.get(1) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(1) + TO_CATCH_THE + animals.get(0) + ";\n" +
+                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + cow() + ";\n" +
-                cow().rhyme() + "\n" +
-                SHE_SWALLOWED_THE + cow() + TO_CATCH_THE + dog() + ",\n" +
-                SHE_SWALLOWED_THE + dog() + TO_CATCH_THE + cat() + ",\n" +
-                SHE_SWALLOWED_THE + cat() + TO_CATCH_THE + bird() + ",\n" +
-                SHE_SWALLOWED_THE + bird() + TO_CATCH_THE + spider() + ",\n" +
-                SHE_SWALLOWED_THE + spider() + TO_CATCH_THE + fly() + ";\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + fly() + PERHAPS_SHE_LL_DIE + "\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(5) + ";\n" +
+                animals.get(5).rhyme() + "\n" +
+                SHE_SWALLOWED_THE + animals.get(5) + TO_CATCH_THE + animals.get(4) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(4) + TO_CATCH_THE + animals.get(3) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(3) + TO_CATCH_THE + animals.get(2) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(2) + TO_CATCH_THE + animals.get(1) + ",\n" +
+                SHE_SWALLOWED_THE + animals.get(1) + TO_CATCH_THE + animals.get(0) + ";\n" +
+                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + horse() + "...\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n" +
                 "...She's dead, of course!";
     }
 
-    public Animal fly() {
-        return animals.get(0);
-    }
-
-    public Animal spider() {
-        return animals.get(1);
-    }
-
-    public Animal bird() {
-        return animals.get(2);
-    }
-
-    public Animal cat() {
-        return animals.get(3);
-    }
-
-    public Animal dog() {
-        return animals.get(4);
-    }
-
-    public Animal cow() {
-        return animals.get(5);
-    }
-
-    public Animal horse() {
-        return animals.get(6);
-    }
 }
