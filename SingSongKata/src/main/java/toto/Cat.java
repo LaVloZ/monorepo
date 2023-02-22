@@ -19,7 +19,7 @@ public class Cat {
             return "Fancy that to swallow a " + name + "!";
         if (name == "spider")
             return "That wriggled and wiggled and tickled inside her.";
-        return  "How absurd to swallow a " + name + ".";
+        return rhyme.replaceAll("\\{name\\}", name);
     }
 
     @Override
