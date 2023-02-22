@@ -51,6 +51,8 @@ class SongTest {
                               new Animal("spider", "That wriggled and wiggled and tickled inside her."),
                               new Animal("bird", "How absurd to swallow a {name}."),
                               new Animal("cat", "Fancy that to swallow a {name}!"),
-                              new Animal("dog", "What a hog, to swallow a {name}!") , "cow", "horse")));
+                              new Animal("dog", "What a hog, to swallow a {name}!") ,
+                                      new Animal("cow", "I don't know how she swallowed a {name}!"),
+                                      "horse")));
   }
 }
