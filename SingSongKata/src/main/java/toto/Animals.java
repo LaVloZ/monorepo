@@ -25,13 +25,7 @@ public final class Animals {
     }
 
     private String refrain(String song, int index, int lastIndex) {
-        String separator = ";";
-        if (index == lastIndex) {
-            separator = "...";
-        }
-        else if (index == 0) {
-            separator = ".";
-        }
+        String separator = seperator(index, lastIndex);
 
         song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + separator + "\n" +
                 animals.get(index).rhyme();
@@ -48,6 +42,17 @@ public final class Animals {
             song += "\n";
         }
         return song;
+    }
+
+    private static String seperator(int index, int lastIndex) {
+        String separator = ";";
+        if (index == lastIndex) {
+            separator = "...";
+        }
+        else if (index == 0) {
+            separator = ".";
+        }
+        return separator;
     }
 
 }
