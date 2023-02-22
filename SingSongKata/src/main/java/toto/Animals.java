@@ -66,18 +66,9 @@ public final class Animals {
                     song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
                 }
                 song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
-                "\n" +
+                "\n";
 
-                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(5) + ";\n" +
-                animals.get(5).rhyme();
-
-                for (int i = 5; i > 0; i--) {
-                    if(i == 6)
-                        break;
-                    song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
-                }
-                song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n";
-                song += "\n";
+                song = getString(song);
 
                 song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n";
                 song += animals.get(6).rhyme();
@@ -88,6 +79,20 @@ public final class Animals {
                 }
                 song += "...She's dead, of course!";
 
+        return song;
+    }
+
+    private String getString(String song) {
+        song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(5) + ";\n" +
+        animals.get(5).rhyme();
+
+        for (int i = 5; i > 0; i--) {
+            if(i == 6)
+                break;
+            song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
+        }
+        song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n";
+        song += "\n";
         return song;
     }
 
