@@ -8,7 +8,9 @@ public class Animal {
     }
 
     public String rhyme() {
-        return "Fancy that to swallow a " + name + "!";
+        if(name == "cat")
+            return "Fancy that to swallow a " + name + "!";
+        return  "How absurd to swallow a " + name + ".";
     }
 
     @Override
