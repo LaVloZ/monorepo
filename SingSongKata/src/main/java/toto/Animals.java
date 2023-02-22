@@ -33,7 +33,12 @@ public final class Animals {
         for (int i = index; i > 0; i--) {
             if(i == lastIndex)
                 break;
-            song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
+            String sep = ",";
+            if (i == 1) {
+                sep = ";";
+            }
+
+            song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + sep + "\n";
         }
         if (index == lastIndex)
             song += "...She's dead, of course!";
