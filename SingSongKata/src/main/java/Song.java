@@ -62,7 +62,7 @@ class Song {
                 I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
                 THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.bird() + ";\n" +
-                "How absurd to swallow a " + animals.bird() + ".\n" +
+                animals.bird().rhyme() + "\n" +
                 SHE_SWALLOWED_THE + animals.bird() + " to catch the " + animals.spider() + ",\n" +
                 SHE_SWALLOWED_THE + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.fly() + " - perhaps she'll die!\n" +
