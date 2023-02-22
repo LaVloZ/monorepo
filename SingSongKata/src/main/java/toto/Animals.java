@@ -39,10 +39,7 @@ public final class Animals {
                 for (int i = 3; i > 0; i--) {
                     song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
                 }
-                song +=  SHE_SWALLOWED_THE + animals.get(3) + TO_CATCH_THE + animals.get(2) + ",\n" +
-                SHE_SWALLOWED_THE + animals.get(2) + TO_CATCH_THE + animals.get(1) + ",\n" +
-                SHE_SWALLOWED_THE + animals.get(1) + TO_CATCH_THE + animals.get(0) + ";\n" +
-                I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
+                song +=  I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n" +
 
                 THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(4) + ";\n" +
