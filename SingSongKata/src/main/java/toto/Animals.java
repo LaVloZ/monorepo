@@ -68,7 +68,7 @@ public final class Animals {
                 song += I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.get(0) + PERHAPS_SHE_LL_DIE + "\n" +
                 "\n";
 
-                song = getString(song);
+                song = getString(song, 5, animals.size() - 1
 
                 song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(6) + "...\n";
                 song += animals.get(6).rhyme();
@@ -82,12 +82,12 @@ public final class Animals {
         return song;
     }
 
-    private String getString(String song) {
-        song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(5) + ";\n" +
-        animals.get(5).rhyme();
+    private String getString(String song, int index, int lastIndex) {
+        song += THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.get(index) + ";\n" +
+        animals.get(index).rhyme();
 
-        for (int i = 5; i > 0; i--) {
-            if(i == 6)
+        for (int i = index; i > 0; i--) {
+            if(i == lastIndex)
                 break;
             song += SHE_SWALLOWED_THE + animals.get(i) + TO_CATCH_THE + animals.get(i - 1) + (i == 1 ? ';' : ',') + "\n";
         }
