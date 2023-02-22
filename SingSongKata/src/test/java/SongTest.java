@@ -45,14 +45,14 @@ class SongTest {
                       "I don't know why she swallowed a fly - perhaps she'll die!\n" +
                       "\n" +
                       "There was an old lady who swallowed a horse...\n" +
-                      "...She's dead, of course!", Song.sing(
-                              new Animals(
-                                      new Animal("fly", ""),
-                                      new Animal("spider", "That wriggled and wiggled and tickled inside her."),
-                                      new Animal("bird", "How absurd to swallow a {name}."),
-                                      new Animal("cat", "Fancy that to swallow a {name}!"),
-                                      new Animal("dog", "What a hog, to swallow a {name}!"),
-                                      new Animal("cow", "I don't know how she swallowed a {name}!"),
-                                      new Animal("horse", ""))));
+                      "...She's dead, of course!", new Animals(
+                              new Animal("fly", ""),
+                              new Animal("spider", "That wriggled and wiggled and tickled inside her."),
+                              new Animal("bird", "How absurd to swallow a {name}."),
+                              new Animal("cat", "Fancy that to swallow a {name}!"),
+                              new Animal("dog", "What a hog, to swallow a {name}!"),
+                              new Animal("cow", "I don't know how she swallowed a {name}!"),
+                              new Animal("horse", "")).sing(
+      ));
   }
 }
