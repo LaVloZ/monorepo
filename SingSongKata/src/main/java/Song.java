@@ -2,6 +2,8 @@ import toto.Animals;
 
 class Song {
 
+    public static final String THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A = "There was an old lady who swallowed a ";
+
     public static void main(String[] args) {
 
         String song = "There was an old lady who swallowed a fly.\n" +
@@ -49,28 +51,28 @@ class Song {
     }
 
     public static String sing(Animals animals) {
-        String song = "There was an old lady who swallowed a " + animals.fly() + ".\n" +
+        String song = THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.fly() + ".\n" +
                 "I don't know why she swallowed a " + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
-                "There was an old lady who swallowed a " + animals.spider() + ";\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.spider() + ";\n" +
                 "That wriggled and wiggled and tickled inside her.\n" +
                 "She swallowed the " + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 "I don't know why she swallowed a " + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
-                "There was an old lady who swallowed a " + animals.bird() + ";\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.bird() + ";\n" +
                 "How absurd to swallow a " + animals.bird() + ".\n" +
                 "She swallowed the " + animals.bird() + " to catch the " + animals.spider() + ",\n" +
                 "She swallowed the " + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 "I don't know why she swallowed a " + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
-                "There was an old lady who swallowed a " + animals.cat() + ";\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.cat() + ";\n" +
                 "Fancy that to swallow a " + animals.cat() + "!\n" +
                 "She swallowed the "+ animals.cat() + " to catch the " + animals.bird() + ",\n" +
                 "She swallowed the " + animals.bird() + " to catch the " + animals.spider() + ",\n" +
                 "She swallowed the " + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 "I don't know why she swallowed a " + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
-                "There was an old lady who swallowed a " + animals.dog() + ";\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.dog() + ";\n" +
                 "What a hog, to swallow a " + animals.dog() + "!\n" +
                 "She swallowed the " + animals.dog() + " to catch the "+ animals.cat() +",\n" +
                 "She swallowed the " + animals.cat() + " to catch the " + animals.bird() + ",\n" +
@@ -78,7 +80,7 @@ class Song {
                 "She swallowed the " + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 "I don't know why she swallowed a " + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
-                "There was an old lady who swallowed a " + animals.cow() + ";\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.cow() + ";\n" +
                 "I don't know how she swallowed a " + animals.cow() + "!\n" +
                 "She swallowed the " + animals.cow() + " to catch the " + animals.dog() + ",\n" +
                 "She swallowed the " + animals.dog() + " to catch the " + animals.cat() +",\n" +
@@ -87,7 +89,7 @@ class Song {
                 "She swallowed the " + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 "I don't know why she swallowed a " + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
-                "There was an old lady who swallowed a " + animals.horse() + "...\n" +
+                THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.horse() + "...\n" +
                 "...She's dead, of course!";
         return song;
     }
