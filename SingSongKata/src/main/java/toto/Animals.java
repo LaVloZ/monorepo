@@ -18,13 +18,8 @@ public final class Animals {
 
     public String sing() {
         String song = "";
-                song = refrain(song, 0, animals.size() - 1);
-                song = refrain(song, 1, animals.size() - 1);
-                song = refrain(song, 2, animals.size() - 1);
-                song = refrain(song, 3, animals.size() - 1);
-                song = refrain(song, 4, animals.size() - 1);
-                song = refrain(song, 5, animals.size() - 1);
-                song = refrain(song, 6, animals.size() - 1);
+        for (int i = 0; i < animals.size(); i++)
+            song = refrain(song, i, animals.size() - 1);
 
         return song;
     }
