@@ -15,10 +15,6 @@ public class Animal {
     }
 
     public String rhyme() {
-        if(name == "cat")
-            return "Fancy that to swallow a " + name + "!";
-        if (name == "spider")
-            return "That wriggled and wiggled and tickled inside her.";
         return rhyme.replaceAll("\\{name\\}", name);
     }
 
