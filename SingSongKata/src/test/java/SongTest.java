@@ -1,5 +1,5 @@
 import org.junit.jupiter.api.Test;
-import toto.Cat;
+import toto.Animal;
 import toto.Animals;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -45,7 +45,7 @@ class SongTest {
                       "I don't know why she swallowed a fly - perhaps she'll die!\n" +
                       "\n" +
                       "There was an old lady who swallowed a horse...\n" +
-                      "...She's dead, of course!", Song.sing(new Animals("fly", new Cat("spider", "That wriggled and wiggled and tickled inside her."),
-              new Cat("bird", "How absurd to swallow a {name}."), new Cat("cat"), "dog", "cow", "horse")));
+                      "...She's dead, of course!", Song.sing(new Animals("fly", new Animal("spider", "That wriggled and wiggled and tickled inside her."),
+              new Animal("bird", "How absurd to swallow a {name}."), new Animal("cat"), "dog", "cow", "horse")));
   }
 }
