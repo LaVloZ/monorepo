@@ -57,7 +57,7 @@ class Song {
                 I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
                 THERE_WAS_AN_OLD_LADY_WHO_SWALLOWED_A + animals.spider() + ";\n" +
-                "That wriggled and wiggled and tickled inside her.\n" +
+                animals.spider().rhyme() + "\n" +
                 SHE_SWALLOWED_THE + animals.spider() + " to catch the " + animals.fly() + ";\n" +
                 I_DON_T_KNOW_WHY_SHE_SWALLOWED_A + animals.fly() + " - perhaps she'll die!\n" +
                 "\n" +
