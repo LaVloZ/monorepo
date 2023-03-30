@@ -2,8 +2,10 @@
   "name": "nodejs-learning",
   "version": "1.0.0",
   "description": "learning nodejs and express, maybe react also",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -18,5 +20,8 @@
   "homepage": "https://github.com/LaVloZ/nodejs-learning#readme",
   "dependencies": {
     "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.3"
   }
 }
