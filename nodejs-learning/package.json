@@ -1,0 +1,19 @@
+{
+  "name": "nodejs-learning",
+  "version": "1.0.0",
+  "description": "learning nodejs and express, maybe react also",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LaVloZ/nodejs-learning.git"
+  },
+  "author": "merrill",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/LaVloZ/nodejs-learning/issues"
+  },
+  "homepage": "https://github.com/LaVloZ/nodejs-learning#readme"
+}
