@@ -7,7 +7,7 @@ describe('product home page', () => {
     render(<App />);
   
     const linkElement = screen.getByText('Salade césarienne')
-    expect(linkElement).toBeInTheDocument();
+    expect(linkElement).toBeInTheDocument()
   });
   
   
@@ -15,13 +15,13 @@ describe('product home page', () => {
     render(<App />);
     
     const linkElement = screen.getByText('5,00 €')
-    expect(linkElement).toBeInTheDocument();
+    expect(linkElement).toBeInTheDocument()
   });
   
   test('show product picture €', () => {
     render(<App />);
     
     const linkElement = screen.getByAltText('Salade césarienne')
-    expect(linkElement).toBeInTheDocument();
+    expect(linkElement).toBeInTheDocument()
   });
 })
