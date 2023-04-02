@@ -4,7 +4,17 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        XX
+        <div>
+          <div>
+            product name
+          </div>
+          <div>
+            picture
+          </div>
+          <div>
+            price
+          </div>
+        </div>
       </header>
     </div>
   );
