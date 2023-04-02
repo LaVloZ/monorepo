@@ -7,6 +7,7 @@ function App() {
     name: 'Salade césarienne',
     picture: salade,
     pictureDescription: 'Salade césarienne',
+    price: '5,00 €'
   }
 
   return (
@@ -20,7 +21,7 @@ function App() {
             <img src={product.picture} alt={product.pictureDescription} />
           </div>
           <div>
-            5,00 €
+            {product.price}
           </div>
         </div>
       </header>
