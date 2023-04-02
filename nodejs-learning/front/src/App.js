@@ -2,15 +2,22 @@ import './App.css';
 import salade from './salade.webp'
 
 function App() {
+
+  const product = {
+    name: 'Salade césarienne',
+    picture: salade,
+    picture: 'Salade césarienne'
+  }
+
   return (
     <div className="App">
       <header className="App-header">
         <div>
           <div>
-            Salade césarienne
+            {product.name}
           </div>
           <div>
-            <img src={salade} alt="Salade césarienne" />
+            <img src={product.picture} alt="Salade césarienne" />
           </div>
           <div>
             5,00 €
