@@ -5,7 +5,7 @@ import salade from './salade.webp'
 function App() {
 
   const [product, setProduct] = useState({ 
-    name: "Salade césarienne",
+    name: 'Salade césarienne',
     picture: salade,
     price: '5,00 €',
   });
