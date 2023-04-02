@@ -1,9 +1,29 @@
 import { render, screen } from '@testing-library/react';
+import { jest } from '@jest/globals'
 import App from './App';
 
 describe('product home page', () => {
 
-  test('show product title : salade césarienne', () => {
+  let fetch
+
+  beforeEach(async () => {
+    fetch = global.fetch
+    global.fetch = jest.fn((resource) => {
+      if(resource === 'product')
+        return Promise.resolve({
+          json: Promise.resolve({
+            name: 'Salade césarienne'
+          })
+        })
+    
+    })
+  })
+
+  afterEach(() => {
+    global.fetch = fetch
+  })
+
+  test('show product title : salade césarienne', async () => {
     render(<App />);
   
     const linkElement = screen.getByText('Salade césarienne')
