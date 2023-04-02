@@ -10,7 +10,7 @@ function App() {
             Salade césarienne
           </div>
           <div>
-            <img src={salade} />
+            <img src={salade} alt="Salade césarienne" />
           </div>
           <div>
             5,00 €
