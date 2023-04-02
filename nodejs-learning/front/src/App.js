@@ -6,7 +6,6 @@ function App() {
   const product = {
     name: 'Salade césarienne',
     picture: salade,
-    pictureDescription: 'Salade césarienne',
     price: '5,00 €'
   }
 
@@ -18,7 +17,7 @@ function App() {
             {product.name}
           </div>
           <div>
-            <img src={product.picture} alt={product.pictureDescription} />
+            <img src={product.picture} alt={product.name} />
           </div>
           <div>
             {product.price}
