@@ -12,7 +12,7 @@ function App() {
             picture
           </div>
           <div>
-            price
+            5,00 €
           </div>
         </div>
       </header>
