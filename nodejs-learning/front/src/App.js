@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import salade from './salade.webp'
 
 function App() {
 
-  const [product, setProduct] = useState({ 
-    name: 'Salade césarienne',
-    picture: salade,
-    price: '5,00 €',
-  });
+  const [product, setProduct] = useState({});
+
+  useEffect(() => {
+    setProduct({
+      name: 'Salade césarienne',
+      picture: salade,
+      price: '5,00 €',
+    })
+
+    return () => {}
+  }, [])
 
   return (
     <div className="App">
