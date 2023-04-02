@@ -6,7 +6,7 @@ function App() {
       <header className="App-header">
         <div>
           <div>
-            product name
+            Salade césarienne
           </div>
           <div>
             picture
