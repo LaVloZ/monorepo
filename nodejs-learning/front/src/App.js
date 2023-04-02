@@ -4,7 +4,7 @@ import salade from './salade.webp'
 
 function App() {
 
-  const [state, setState] = useState({ 
+  const [product, setProduct] = useState({ 
     name: "Salade césarienne",
     picture: salade,
     price: '5,00 €',
@@ -15,13 +15,13 @@ function App() {
       <header className="App-header">
         <div>
           <div>
-            {state.name}
+            {product.name}
           </div>
           <div>
-            <img src={state.picture} alt={state.name} />
+            <img src={product.picture} alt={product.name} />
           </div>
           <div>
-            {state.price}
+            {product.price}
           </div>
         </div>
       </header>
