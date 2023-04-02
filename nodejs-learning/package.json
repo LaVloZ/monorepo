@@ -19,9 +19,7 @@
   },
   "homepage": "https://github.com/LaVloZ/nodejs-learning#readme",
   "dependencies": {
-    "express": "^4.18.2",
-    "knex": "^2.4.2",
-    "knex-mariadb": "^2.0.0"
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.21.0",
