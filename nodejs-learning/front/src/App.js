@@ -1,4 +1,5 @@
 import './App.css';
+import salade from './salade.webp'
 
 function App() {
   return (
@@ -9,7 +10,7 @@ function App() {
             Salade césarienne
           </div>
           <div>
-            picture
+            <img src={salade} />
           </div>
           <div>
             5,00 €
