@@ -12,8 +12,6 @@ function App() {
       picture: salade,
       price: '5,00 €',
     })
-
-    return () => {}
   }, [])
 
   return (
