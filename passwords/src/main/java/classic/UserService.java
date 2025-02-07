@@ -4,11 +4,13 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
     private UserRepository userRepository;
+    private MD5 hasher;
+
+    public UserService(UserRepository userRepository, MD5 hasher) {
+        this.userRepository = userRepository;
+        this.hasher = hasher;
+    }
 
     public void createUser(User user) {
         userRepository.createUser(user);
@@ -16,7 +18,7 @@ public class UserService {
 
     public void updateUser(String username, String password) {
         User user = userRepository.getByUsername(username);
-        user.setPassword(MD5.hash(password));
+        user.setPassword(hasher.hash(password));
         userRepository.updateUser(user);
     }
 
