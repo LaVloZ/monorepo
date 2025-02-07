@@ -7,7 +7,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 @Service
-public class MD5 {
+public class MD5 implements Hasher {
+    @Override
     public String hash(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");

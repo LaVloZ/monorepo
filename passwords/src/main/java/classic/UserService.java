@@ -5,9 +5,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserService {
     private UserRepository userRepository;
-    private MD5 hasher;
+    private Hasher hasher;
 
-    public UserService(UserRepository userRepository, MD5 hasher) {
+    public UserService(UserRepository userRepository, Hasher hasher) {
         this.userRepository = userRepository;
         this.hasher = hasher;
     }
