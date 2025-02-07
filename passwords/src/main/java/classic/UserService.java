@@ -20,7 +20,7 @@ public class UserService {
 
     public void updateUser(String username, String password) {
         User user = userRepository.getByUsername(username);
-        user.setPassword(getMD5(password));
+        user.setPassword(hash(password));
         userRepository.updateUser(user);
     }
 
@@ -28,7 +28,7 @@ public class UserService {
         return userRepository.getByUsername(username);
     }
 
-    public static String getMD5(String input) {
+    public static String hash(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] digest = md.digest(input.getBytes());
