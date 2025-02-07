@@ -15,7 +15,7 @@ public class UpdatePasswordTest {
     UserService userService;
 
     @Test
-    public void update_password() {
+    public void update_password_hashed() {
         User spongebob = new User("SpongeBob", "Old Password");
         userService.createUser(spongebob);
 
@@ -23,6 +23,6 @@ public class UpdatePasswordTest {
 
         Assertions.assertThat(userService.getByUsername("SpongeBob"))
                 .extracting(User::getPassword)
-                .isEqualTo("New Password");
+                .isEqualTo("ae3bb2a1ac61750150b606298091d38a");
     }
 }
