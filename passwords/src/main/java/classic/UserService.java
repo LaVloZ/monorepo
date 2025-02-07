@@ -18,7 +18,8 @@ public class UserService {
 
     public void updateUser(String username, String password) {
         User user = userRepository.getByUsername(username);
-        user.setPassword(hasher.hash(password));
+        String hash = hasher.hash(password);
+        user.setPassword(hash);
         userRepository.updateUser(user);
     }
 
