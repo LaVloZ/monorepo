@@ -1,5 +1,6 @@
-package classic;
+package classic.hashing;
 
+import classic.Hasher;
 import org.springframework.stereotype.Service;
 
 import java.math.BigInteger;
