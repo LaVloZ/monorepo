@@ -1,1 +1,19 @@
 databaseChangeLog:
+  - changeSet:
+      id: user-table
+      author: AM
+      changes:
+        - createTable:
+            tableName: user
+            columns:
+              - column:
+                  name: username
+                  type: varchar(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: password
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
