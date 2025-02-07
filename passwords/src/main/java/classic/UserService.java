@@ -15,7 +15,9 @@ public class UserService {
     }
 
     public void updateUser(String username, String password) {
-
+        User user = userRepository.getByUsername(username);
+        user.setPassword(password);
+        userRepository.updateUser(user);
     }
 
     public User getByUsername(String username) {
