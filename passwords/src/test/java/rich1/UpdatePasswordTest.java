@@ -21,8 +21,7 @@ public class UpdatePasswordTest {
 
         userService.updateUser("SpongeBob", "New Password");
 
-        Assertions.assertThat(userService.getByUsername("SpongeBob"))
-                .extracting(User::getPassword)
-                .isEqualTo("ae3bb2a1ac61750150b606298091d38a");
+        Assertions.assertThat(userService.getByUsername("SpongeBob").authenticate("ae3bb2a1ac61750150b606298091d38a"))
+                .isTrue();
     }
 }
