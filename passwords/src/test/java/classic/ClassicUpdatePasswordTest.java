@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest(classes = SpringConfig.class)
 @Transactional
-public class UpdatePasswordTest {
+public class ClassicUpdatePasswordTest {
 
     @Autowired
     UserService userService;

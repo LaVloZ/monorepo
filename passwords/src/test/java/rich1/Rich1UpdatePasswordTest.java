@@ -9,7 +9,7 @@ import rich1.config.SpringConfig;
 
 @SpringBootTest(classes = SpringConfig.class)
 @Transactional
-public class UpdatePasswordTest {
+public class Rich1UpdatePasswordTest {
 
     @Autowired
     UserService userService;
