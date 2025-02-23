@@ -15,7 +15,7 @@ public class Rich1UpdatePasswordTest {
     UserService userService;
 
     @Test
-    public void update_password_hashed() {
+    public void update_password() {
         User spongebob = new User("SpongeBob", "Old Password");
         userService.createUser(spongebob);
 
