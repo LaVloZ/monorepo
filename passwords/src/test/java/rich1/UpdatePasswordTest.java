@@ -1,11 +1,11 @@
-package classic;
+package rich1;
 
-import classic.config.SpringConfig;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import rich1.config.SpringConfig;
 
 @SpringBootTest(classes = SpringConfig.class)
 @Transactional
