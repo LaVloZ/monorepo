@@ -1,5 +1,7 @@
 package shipping;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class Package {
@@ -7,6 +9,7 @@ public class Package {
     private final String description;
     private final Weight weight;
     private boolean delivered;
+    private List<Order> orders = new ArrayList<>();
 
     public Package(UUID packageId, String description, Weight weight) {
         this.packageId = packageId;
