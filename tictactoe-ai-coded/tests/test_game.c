@@ -76,6 +76,22 @@ static void test_win_diagonal(void) {
     assert(g.status == GAME_X_WINS);
 }
 
+static void test_draw(void) {
+    Game g;
+    GameInit(&g);
+    // X O X / X O O / O X X  -> plateau plein sans gagnant
+    GamePlayMove(&g, 0); // X
+    GamePlayMove(&g, 1); // O
+    GamePlayMove(&g, 2); // X
+    GamePlayMove(&g, 4); // O
+    GamePlayMove(&g, 3); // X
+    GamePlayMove(&g, 5); // O
+    GamePlayMove(&g, 7); // X
+    GamePlayMove(&g, 6); // O
+    GamePlayMove(&g, 8); // X
+    assert(g.status == GAME_DRAW);
+}
+
 int main(void) {
     test_game_init();
     test_play_move_places_mark_and_switches_turn();
@@ -83,6 +99,7 @@ int main(void) {
     test_win_row();
     test_win_column();
     test_win_diagonal();
+    test_draw();
     printf("Tous les tests passent\n");
     return 0;
 }

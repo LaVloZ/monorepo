@@ -18,6 +18,13 @@ static bool HasWon(const Game *g, Cell player) {
     return false;
 }
 
+static bool BoardFull(const Game *g) {
+    for (int i = 0; i < 9; i++) {
+        if (g->cells[i] == CELL_EMPTY) return false;
+    }
+    return true;
+}
+
 void GameInit(Game *g) {
     for (int i = 0; i < 9; i++) g->cells[i] = CELL_EMPTY;
     g->turn = CELL_X;
@@ -34,6 +41,8 @@ bool GamePlayMove(Game *g, int index) {
 
     if (HasWon(g, player)) {
         g->status = (player == CELL_X) ? GAME_X_WINS : GAME_O_WINS;
+    } else if (BoardFull(g)) {
+        g->status = GAME_DRAW;
     } else {
         g->turn = (player == CELL_X) ? CELL_O : CELL_X;
     }
