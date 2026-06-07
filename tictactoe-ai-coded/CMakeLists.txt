@@ -9,13 +9,20 @@ find_package(raylib REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CJSON REQUIRED libcjson)
 
+find_package(CURL REQUIRED)
+find_package(Threads REQUIRED)
+
 add_executable(box-game
     src/main.c
     src/board.c
     src/game.c
     src/ai.c
+    src/claude_parse.c
+    src/claude.c
 )
-target_link_libraries(box-game PRIVATE raylib)
+target_include_directories(box-game PRIVATE ${CJSON_INCLUDE_DIRS})
+target_link_directories(box-game PRIVATE ${CJSON_LIBRARY_DIRS})
+target_link_libraries(box-game PRIVATE raylib CURL::libcurl Threads::Threads ${CJSON_LIBRARIES})
 
 enable_testing()
 add_executable(box-game-tests
