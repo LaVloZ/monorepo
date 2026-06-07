@@ -124,9 +124,38 @@ static void test_is_winning_move(void) {
     assert(g.cells[2] == CELL_EMPTY);                   // n'a pas muté g
 }
 
+static void test_medium_wins(void) {
+    Game g;
+    GameInit(&g);
+    g.turn = CELL_O;
+    g.cells[0] = CELL_O;
+    g.cells[1] = CELL_O;   // O gagne en jouant 2
+    assert(AiChooseMove(&g, DIFFICULTY_MEDIUM) == 2);
+}
+
+static void test_medium_blocks(void) {
+    Game g;
+    GameInit(&g);
+    g.turn = CELL_O;
+    g.cells[0] = CELL_X;
+    g.cells[1] = CELL_X;   // X menace en 2, O ne peut pas gagner -> bloque 2
+    assert(AiChooseMove(&g, DIFFICULTY_MEDIUM) == 2);
+}
+
+static void test_medium_takes_center(void) {
+    Game g;
+    GameInit(&g);
+    g.turn = CELL_O;
+    g.cells[0] = CELL_X;   // pas de menace de ligne, centre libre
+    assert(AiChooseMove(&g, DIFFICULTY_MEDIUM) == 4);
+}
+
 int main(void) {
     test_game_init();
     test_is_winning_move();
+    test_medium_wins();
+    test_medium_blocks();
+    test_medium_takes_center();
     test_ai_returns_empty_cell();
     test_ai_full_board_returns_minus_one();
     test_play_move_places_mark_and_switches_turn();
