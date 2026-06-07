@@ -1,4 +1,4 @@
-Tic Tac Toe
+# Tic Tac Toe
 
 Un morpion (Tic-Tac-Toe) en C avec interface graphique [raylib](https://www.raylib.com/).
 Vous jouez les **X**, l'ordinateur joue les **O**, avec trois niveaux de difficulté —
