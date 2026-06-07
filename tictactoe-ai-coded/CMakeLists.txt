@@ -11,3 +11,11 @@ add_executable(box-game
     src/board.c
 )
 target_link_libraries(box-game PRIVATE raylib)
+
+enable_testing()
+add_executable(box-game-tests
+    tests/test_game.c
+    src/game.c
+)
+target_include_directories(box-game-tests PRIVATE src)
+add_test(NAME game_tests COMMAND box-game-tests)
