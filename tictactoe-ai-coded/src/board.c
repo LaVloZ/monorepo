@@ -13,24 +13,44 @@ void DrawBoardGrid(void) {
                (Vector2){BOARD_SIZE, 2 * CELL_SIZE}, LINE_THICKNESS, DARKGRAY);
 }
 
-void DrawMarks(const Game *g) {
+static float Clamp01(float v) {
+    if (v < 0.0f) return 0.0f;
+    if (v > 1.0f) return 1.0f;
+    return v;
+}
+
+void DrawMarks(const Game *g, const float progress[9]) {
     const float margin = 45.0f;
     for (int i = 0; i < 9; i++) {
+        if (g->cells[i] == CELL_EMPTY) continue;
+        float p = progress[i];
         int row = i / 3;
         int col = i % 3;
         float x = col * CELL_SIZE;
         float y = row * CELL_SIZE;
         if (g->cells[i] == CELL_X) {
-            DrawLineEx((Vector2){x + margin, y + margin},
-                       (Vector2){x + CELL_SIZE - margin, y + CELL_SIZE - margin},
-                       8.0f, RED);
-            DrawLineEx((Vector2){x + CELL_SIZE - margin, y + margin},
-                       (Vector2){x + margin, y + CELL_SIZE - margin},
-                       8.0f, RED);
-        } else if (g->cells[i] == CELL_O) {
+            float f1 = Clamp01(p / 0.5f);
+            float f2 = Clamp01((p - 0.5f) / 0.5f);
+            Vector2 a1 = {x + margin, y + margin};
+            Vector2 b1 = {x + CELL_SIZE - margin, y + CELL_SIZE - margin};
+            if (f1 > 0.0f) {
+                DrawLineEx(a1,
+                    (Vector2){a1.x + f1 * (b1.x - a1.x), a1.y + f1 * (b1.y - a1.y)},
+                    8.0f, RED);
+            }
+            Vector2 a2 = {x + CELL_SIZE - margin, y + margin};
+            Vector2 b2 = {x + margin, y + CELL_SIZE - margin};
+            if (f2 > 0.0f) {
+                DrawLineEx(a2,
+                    (Vector2){a2.x + f2 * (b2.x - a2.x), a2.y + f2 * (b2.y - a2.y)},
+                    8.0f, RED);
+            }
+        } else { // CELL_O
             Vector2 center = {x + CELL_SIZE / 2.0f, y + CELL_SIZE / 2.0f};
             float radius = CELL_SIZE / 2.0f - margin;
-            DrawRing(center, radius - 6.0f, radius, 0, 360, 64, BLUE);
+            if (p > 0.0f) {
+                DrawRing(center, radius - 6.0f, radius, 0.0f, p * 360.0f, 64, BLUE);
+            }
         }
     }
 }

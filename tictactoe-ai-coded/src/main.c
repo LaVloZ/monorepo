@@ -18,6 +18,9 @@ int main(void) {
     Game game;
     GameInit(&game);
 
+    float progress[9];
+    for (int i = 0; i < 9; i++) progress[i] = 1.0f;
+
     while (!WindowShouldClose()) {
         if (state == STATE_MENU) {
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -60,7 +63,7 @@ int main(void) {
             BeginDrawing();
             ClearBackground(RAYWHITE);
             DrawBoardGrid();
-            DrawMarks(&game);
+            DrawMarks(&game, progress);
             DrawStatusText(&game, difficulty);
             EndDrawing();
         }
