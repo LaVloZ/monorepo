@@ -16,6 +16,7 @@ enable_testing()
 add_executable(box-game-tests
     tests/test_game.c
     src/game.c
+    src/ai.c
 )
 target_include_directories(box-game-tests PRIVATE src)
 add_test(NAME game_tests COMMAND box-game-tests)

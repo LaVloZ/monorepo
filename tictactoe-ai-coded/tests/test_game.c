@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "game.h"
+#include "ai.h"
 
 static void test_game_init(void) {
     Game g;
@@ -92,8 +93,30 @@ static void test_draw(void) {
     assert(g.status == GAME_DRAW);
 }
 
+static void test_ai_returns_empty_cell(void) {
+    Game g;
+    GameInit(&g);
+    g.cells[0] = CELL_X;
+    g.cells[4] = CELL_O;
+    g.cells[8] = CELL_X;
+    for (int k = 0; k < 50; k++) {
+        int m = AiChooseMove(&g);
+        assert(m >= 0 && m < 9);
+        assert(g.cells[m] == CELL_EMPTY);
+    }
+}
+
+static void test_ai_full_board_returns_minus_one(void) {
+    Game g;
+    GameInit(&g);
+    for (int i = 0; i < 9; i++) g.cells[i] = CELL_X;
+    assert(AiChooseMove(&g) == -1);
+}
+
 int main(void) {
     test_game_init();
+    test_ai_returns_empty_cell();
+    test_ai_full_board_returns_minus_one();
     test_play_move_places_mark_and_switches_turn();
     test_play_move_rejects_illegal();
     test_win_row();
