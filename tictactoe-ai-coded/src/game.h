@@ -15,4 +15,8 @@ typedef struct {
 void GameInit(Game *g);
 bool GamePlayMove(Game *g, int index);
 
+// true si jouer `player` à `index` (case supposée vide) complète une ligne gagnante.
+// Ne modifie pas le Game.
+bool GameIsWinningMove(const Game *g, int index, Cell player);
+
 #endif // GAME_H

@@ -48,3 +48,11 @@ bool GamePlayMove(Game *g, int index) {
     }
     return true;
 }
+
+bool GameIsWinningMove(const Game *g, int index, Cell player) {
+    if (index < 0 || index > 8) return false;
+    if (g->cells[index] != CELL_EMPTY) return false;
+    Game copy = *g;
+    copy.cells[index] = player;
+    return HasWon(&copy, player);
+}

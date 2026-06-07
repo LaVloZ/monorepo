@@ -113,8 +113,20 @@ static void test_ai_full_board_returns_minus_one(void) {
     assert(AiChooseMove(&g) == -1);
 }
 
+static void test_is_winning_move(void) {
+    Game g;
+    GameInit(&g);
+    g.cells[0] = CELL_X;
+    g.cells[1] = CELL_X;
+    assert(GameIsWinningMove(&g, 2, CELL_X) == true);   // complète 0,1,2
+    assert(GameIsWinningMove(&g, 2, CELL_O) == false);  // O ne gagne pas là
+    assert(GameIsWinningMove(&g, 0, CELL_X) == false);  // case occupée
+    assert(g.cells[2] == CELL_EMPTY);                   // n'a pas muté g
+}
+
 int main(void) {
     test_game_init();
+    test_is_winning_move();
     test_ai_returns_empty_cell();
     test_ai_full_board_returns_minus_one();
     test_play_move_places_mark_and_switches_turn();
