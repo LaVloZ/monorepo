@@ -8,5 +8,6 @@ find_package(raylib REQUIRED)
 
 add_executable(box-game
     src/main.c
+    src/board.c
 )
 target_link_libraries(box-game PRIVATE raylib)

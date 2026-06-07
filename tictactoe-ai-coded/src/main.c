@@ -1,6 +1,5 @@
 #include "raylib.h"
-
-#define WINDOW_SIZE 600
+#include "board.h"
 
 int main(void) {
     InitWindow(WINDOW_SIZE, WINDOW_SIZE, "Box Game — Tic Tac Toe");
@@ -9,6 +8,7 @@ int main(void) {
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
+        DrawBoardGrid();
         EndDrawing();
     }
 
