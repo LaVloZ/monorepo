@@ -1,7 +1,9 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include "raylib.h"
 #include "game.h"
+#include "ai.h"
 
 #define BOARD_SIZE 600
 #define CELL_SIZE 200
@@ -12,6 +14,8 @@
 
 void DrawBoardGrid(void);
 void DrawMarks(const Game *g);
-void DrawStatusText(const Game *g);
+void DrawStatusText(const Game *g, Difficulty difficulty);
+void DrawMenu(void);
+Rectangle GetMenuButtonRect(int index);
 
 #endif // BOARD_H

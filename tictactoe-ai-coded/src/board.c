@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include <stdio.h>
 #include "board.h"
 
 void DrawBoardGrid(void) {
@@ -34,14 +35,55 @@ void DrawMarks(const Game *g) {
     }
 }
 
-void DrawStatusText(const Game *g) {
-    const char *text;
+static const char *DifficultyLabel(Difficulty d) {
+    switch (d) {
+        case DIFFICULTY_EASY:   return "Facile";
+        case DIFFICULTY_MEDIUM: return "Moyen";
+        case DIFFICULTY_HARD:   return "Difficile";
+        default:                return "?";
+    }
+}
+
+void DrawStatusText(const Game *g, Difficulty difficulty) {
+    const char *base;
     switch (g->status) {
-        case GAME_X_WINS: text = "X gagne ! Clic pour rejouer"; break;
-        case GAME_O_WINS: text = "O gagne ! Clic pour rejouer"; break;
-        case GAME_DRAW:   text = "Match nul - Clic pour rejouer"; break;
-        default:          text = (g->turn == CELL_X) ? "Au tour de X"
+        case GAME_X_WINS: base = "X gagne ! Clic pour rejouer"; break;
+        case GAME_O_WINS: base = "O gagne ! Clic pour rejouer"; break;
+        case GAME_DRAW:   base = "Match nul - Clic pour rejouer"; break;
+        default:          base = (g->turn == CELL_X) ? "Au tour de X"
                                                      : "Au tour de O"; break;
     }
-    DrawText(text, 20, BOARD_SIZE + 35, 28, DARKGRAY);
+    char buffer[80];
+    snprintf(buffer, sizeof(buffer), "%s - %s", base, DifficultyLabel(difficulty));
+    DrawText(buffer, 20, BOARD_SIZE + 35, 24, DARKGRAY);
+}
+
+Rectangle GetMenuButtonRect(int index) {
+    float w = 280.0f;
+    float h = 70.0f;
+    float x = (WINDOW_WIDTH - w) / 2.0f;
+    float y = 220.0f + index * (h + 30.0f);
+    return (Rectangle){x, y, w, h};
+}
+
+void DrawMenu(void) {
+    const char *title = "Tic Tac Toe";
+    int titleWidth = MeasureText(title, 50);
+    DrawText(title, (WINDOW_WIDTH - titleWidth) / 2, 110, 50, DARKGRAY);
+
+    const char *labels[3] = {"Facile", "Moyen", "Difficile"};
+    for (int i = 0; i < 3; i++) {
+        Rectangle r = GetMenuButtonRect(i);
+        bool disabled = (i == 2);
+        Color fill = disabled ? LIGHTGRAY : SKYBLUE;
+        Color textColor = disabled ? GRAY : DARKBLUE;
+        DrawRectangleRec(r, fill);
+        DrawRectangleLinesEx(r, 3, DARKGRAY);
+        int tw = MeasureText(labels[i], 30);
+        DrawText(labels[i], (int)(r.x + (r.width - tw) / 2),
+                 (int)(r.y + (r.height - 30) / 2), 30, textColor);
+    }
+    const char *hint = "Difficile : bientot disponible";
+    int hw = MeasureText(hint, 18);
+    DrawText(hint, (WINDOW_WIDTH - hw) / 2, 560, 18, GRAY);
 }

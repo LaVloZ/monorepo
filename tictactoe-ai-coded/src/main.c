@@ -40,7 +40,7 @@ int main(void) {
         ClearBackground(RAYWHITE);
         DrawBoardGrid();
         DrawMarks(&game);
-        DrawStatusText(&game);
+        DrawStatusText(&game, difficulty);
         EndDrawing();
     }
 
