@@ -7,7 +7,7 @@ void GameInit(Game *g) {
 }
 
 bool GamePlayMove(Game *g, int index) {
-    (void)g;
-    (void)index;
-    return false;
+    g->cells[index] = g->turn;
+    g->turn = (g->turn == CELL_X) ? CELL_O : CELL_X;
+    return true;
 }
