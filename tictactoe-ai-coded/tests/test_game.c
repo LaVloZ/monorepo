@@ -100,7 +100,7 @@ static void test_ai_returns_empty_cell(void) {
     g.cells[4] = CELL_O;
     g.cells[8] = CELL_X;
     for (int k = 0; k < 50; k++) {
-        int m = AiChooseMove(&g);
+        int m = AiChooseMove(&g, DIFFICULTY_EASY);
         assert(m >= 0 && m < 9);
         assert(g.cells[m] == CELL_EMPTY);
     }
@@ -110,7 +110,7 @@ static void test_ai_full_board_returns_minus_one(void) {
     Game g;
     GameInit(&g);
     for (int i = 0; i < 9; i++) g.cells[i] = CELL_X;
-    assert(AiChooseMove(&g) == -1);
+    assert(AiChooseMove(&g, DIFFICULTY_EASY) == -1);
 }
 
 static void test_is_winning_move(void) {

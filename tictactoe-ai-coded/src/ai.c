@@ -1,7 +1,7 @@
 #include "ai.h"
 #include <stdlib.h>
 
-int AiChooseMove(const Game *g) {
+static int ChooseRandom(const Game *g) {
     int empty[9];
     int count = 0;
     for (int i = 0; i < 9; i++) {
@@ -9,4 +9,9 @@ int AiChooseMove(const Game *g) {
     }
     if (count == 0) return -1;
     return empty[rand() % count];
+}
+
+int AiChooseMove(const Game *g, Difficulty difficulty) {
+    (void)difficulty;
+    return ChooseRandom(g);
 }

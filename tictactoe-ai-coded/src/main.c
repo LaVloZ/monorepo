@@ -10,6 +10,7 @@ int main(void) {
     SetTargetFPS(60);
     srand((unsigned int)time(NULL));
 
+    Difficulty difficulty = DIFFICULTY_EASY;
     Game game;
     GameInit(&game);
 
@@ -31,7 +32,7 @@ int main(void) {
 
         // Tour de l'IA (O), juste après le coup de l'humain
         if (game.status == GAME_PLAYING && game.turn == CELL_O) {
-            int move = AiChooseMove(&game);
+            int move = AiChooseMove(&game, difficulty);
             if (move >= 0) GamePlayMove(&game, move);
         }
 
