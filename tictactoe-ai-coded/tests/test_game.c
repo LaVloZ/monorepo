@@ -43,10 +43,46 @@ static void test_play_move_rejects_illegal(void) {
     assert(g.cells[1] == CELL_EMPTY);
 }
 
+static void test_win_row(void) {
+    Game g;
+    GameInit(&g);
+    GamePlayMove(&g, 0); // X
+    GamePlayMove(&g, 3); // O
+    GamePlayMove(&g, 1); // X
+    GamePlayMove(&g, 4); // O
+    GamePlayMove(&g, 2); // X gagne 0,1,2
+    assert(g.status == GAME_X_WINS);
+}
+
+static void test_win_column(void) {
+    Game g;
+    GameInit(&g);
+    GamePlayMove(&g, 0); // X
+    GamePlayMove(&g, 1); // O
+    GamePlayMove(&g, 3); // X
+    GamePlayMove(&g, 2); // O
+    GamePlayMove(&g, 6); // X gagne 0,3,6
+    assert(g.status == GAME_X_WINS);
+}
+
+static void test_win_diagonal(void) {
+    Game g;
+    GameInit(&g);
+    GamePlayMove(&g, 0); // X
+    GamePlayMove(&g, 1); // O
+    GamePlayMove(&g, 4); // X
+    GamePlayMove(&g, 2); // O
+    GamePlayMove(&g, 8); // X gagne 0,4,8
+    assert(g.status == GAME_X_WINS);
+}
+
 int main(void) {
     test_game_init();
     test_play_move_places_mark_and_switches_turn();
     test_play_move_rejects_illegal();
+    test_win_row();
+    test_win_column();
+    test_win_diagonal();
     printf("Tous les tests passent\n");
     return 0;
 }
