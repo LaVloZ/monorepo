@@ -15,6 +15,7 @@
 void DrawBoardGrid(void);
 void DrawMarks(const Game *g, const float progress[9]);
 void DrawStatusText(const Game *g, Difficulty difficulty);
+void DrawThinkingText(void);
 void DrawMenu(void);
 Rectangle GetMenuButtonRect(int index);
 

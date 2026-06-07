@@ -78,6 +78,10 @@ void DrawStatusText(const Game *g, Difficulty difficulty) {
     DrawText(buffer, 20, BOARD_SIZE + 35, 24, DARKGRAY);
 }
 
+void DrawThinkingText(void) {
+    DrawText("Reflexion...", 20, BOARD_SIZE + 35, 24, MAROON);
+}
+
 Rectangle GetMenuButtonRect(int index) {
     float w = 280.0f;
     float h = 70.0f;
@@ -94,16 +98,13 @@ void DrawMenu(void) {
     const char *labels[3] = {"Facile", "Moyen", "Difficile"};
     for (int i = 0; i < 3; i++) {
         Rectangle r = GetMenuButtonRect(i);
-        bool disabled = (i == 2);
-        Color fill = disabled ? LIGHTGRAY : SKYBLUE;
-        Color textColor = disabled ? GRAY : DARKBLUE;
-        DrawRectangleRec(r, fill);
+        DrawRectangleRec(r, SKYBLUE);
         DrawRectangleLinesEx(r, 3, DARKGRAY);
         int tw = MeasureText(labels[i], 30);
         DrawText(labels[i], (int)(r.x + (r.width - tw) / 2),
-                 (int)(r.y + (r.height - 30) / 2), 30, textColor);
+                 (int)(r.y + (r.height - 30) / 2), 30, DARKBLUE);
     }
-    const char *hint = "Difficile : bientot disponible";
+    const char *hint = "Difficile = Claude (ANTHROPIC_API_KEY)";
     int hw = MeasureText(hint, 18);
     DrawText(hint, (WINDOW_WIDTH - hw) / 2, 560, 18, GRAY);
 }
