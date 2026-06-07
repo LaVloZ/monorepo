@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "game.h"
 #include "ai.h"
+#include "claude_parse.h"
 
 static void test_game_init(void) {
     Game g;
@@ -150,9 +151,57 @@ static void test_medium_takes_center(void) {
     assert(AiChooseMove(&g, DIFFICULTY_MEDIUM) == 4);
 }
 
+static void test_claude_parse_valid_move(void) {
+    Game g;
+    GameInit(&g);
+    const char *json = "{\"content\":[{\"type\":\"text\",\"text\":\"4\"}]}";
+    assert(ClaudeParseMove(json, &g) == 4);
+}
+
+static void test_claude_parse_with_prose(void) {
+    Game g;
+    GameInit(&g);
+    const char *json = "{\"content\":[{\"type\":\"text\",\"text\":\"Je joue 2.\"}]}";
+    assert(ClaudeParseMove(json, &g) == 2);
+}
+
+static void test_claude_parse_occupied_cell(void) {
+    Game g;
+    GameInit(&g);
+    g.cells[4] = CELL_X;
+    const char *json = "{\"content\":[{\"type\":\"text\",\"text\":\"4\"}]}";
+    assert(ClaudeParseMove(json, &g) == -1);
+}
+
+static void test_claude_parse_out_of_range(void) {
+    Game g;
+    GameInit(&g);
+    const char *json = "{\"content\":[{\"type\":\"text\",\"text\":\"9\"}]}";
+    assert(ClaudeParseMove(json, &g) == -1);
+}
+
+static void test_claude_parse_invalid_json(void) {
+    Game g;
+    GameInit(&g);
+    assert(ClaudeParseMove("not json {", &g) == -1);
+}
+
+static void test_claude_parse_missing_text(void) {
+    Game g;
+    GameInit(&g);
+    const char *json = "{\"content\":[]}";
+    assert(ClaudeParseMove(json, &g) == -1);
+}
+
 int main(void) {
     test_game_init();
     test_is_winning_move();
+    test_claude_parse_valid_move();
+    test_claude_parse_with_prose();
+    test_claude_parse_occupied_cell();
+    test_claude_parse_out_of_range();
+    test_claude_parse_invalid_json();
+    test_claude_parse_missing_text();
     test_medium_wins();
     test_medium_blocks();
     test_medium_takes_center();
