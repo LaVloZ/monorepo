@@ -125,3 +125,11 @@ Deux points à retenir pour un relecteur :
   et fonctionnalité ; chaque `feat:` est un comportement cohérent unique, si
   bien que l'historique fait aussi office de visite guidée, étape par étape, de
   la construction du jeu.
+
+> **Un exemple parlant — le menu de difficulté (YAGNI en action).**
+> Tant qu'il n'y avait qu'une seule IA (l'adversaire « Facile » aléatoire),
+> il n'y avait *aucun menu* — il n'en fallait pas. Le menu de difficulté est
+> apparu dans le commit juste *après* l'ajout de l'heuristique moyenne
+> (`feat: heuristique du niveau moyen` → `feat: écran de menu`) : dès qu'un vrai
+> choix a existé, on a construit l'interface pour faire ce choix. On n'a pas
+> anticipé le menu à l'avance ; c'est la deuxième difficulté qui l'a justifié.

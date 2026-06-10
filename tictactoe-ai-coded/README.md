@@ -122,3 +122,11 @@ Two things stand out for a reviewer:
 - **Each step is small and reversible.** No commit mixes a spec, a plan and a
   feature; every `feat:` is a single coherent behavior, so the history doubles
   as a step-by-step walkthrough of how the game was built.
+
+> **A telling example — the difficulty menu (YAGNI in action).**
+> While there was only one AI (the random "Easy" opponent), there was *no menu*
+> at all — none was needed. The difficulty menu appeared in the very next
+> commit *after* the medium heuristic was added (`feat: medium heuristic` →
+> `feat: menu screen`): the moment a real choice existed, the UI to make that
+> choice was built. We didn't speculate the menu up front; the second
+> difficulty is what justified it.
