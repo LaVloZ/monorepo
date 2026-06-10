@@ -1,58 +1,60 @@
 # Tic Tac Toe
 
-Un morpion (Tic-Tac-Toe) en C avec interface graphique [raylib](https://www.raylib.com/).
-Vous jouez les **X**, l'ordinateur joue les **O**, avec trois niveaux de difficulté —
-dont un niveau **Difficile** piloté par l'API Claude d'Anthropic.
+> 🇫🇷 *Lire en français : [README.fr.md](README.fr.md).*
 
-## Fonctionnalités
+A Tic-Tac-Toe game written in C with a [raylib](https://www.raylib.com/) graphical interface.
+You play as **X**, the computer plays **O**, across three difficulty levels —
+including a **Hard** level driven by Anthropic's Claude API.
 
-- Interface graphique (grille 3×3, animation d'apparition des pions)
-- Menu de sélection de la difficulté
-- Trois niveaux d'IA :
-  - **Facile** — coups aléatoires
-  - **Moyen** — heuristique (gagner / bloquer / centre / coin)
-  - **Difficile** — coup choisi par Claude (`claude-opus-4-8`) via l'API Anthropic,
-    avec repli sur l'heuristique moyenne en cas d'erreur réseau
-- `Échap` pour revenir au menu à tout moment
+## Features
 
-## Prérequis
+- Graphical interface (3×3 grid, piece drop-in animation)
+- Difficulty selection menu
+- Three AI levels:
+  - **Easy** — random moves
+  - **Medium** — heuristic (win / block / center / corner)
+  - **Hard** — move chosen by Claude (`claude-opus-4-8`) via the Anthropic API,
+    falling back to the medium heuristic on network errors
+- `Esc` to return to the menu at any time
 
-- CMake ≥ 3.16 et un compilateur C11
+## Requirements
+
+- CMake ≥ 3.16 and a C11 compiler
 - [raylib](https://www.raylib.com/)
 - [libcurl](https://curl.se/libcurl/)
 - [cJSON](https://github.com/DaveGamble/cJSON) (`libcjson`)
-- pthreads (généralement fourni par le système)
+- pthreads (usually provided by the system)
 
-Sur macOS (Homebrew) :
+On macOS (Homebrew):
 
 ```sh
 brew install cmake raylib curl cjson
 ```
 
-## Compilation
+## Building
 
 ```sh
 cmake -B build
 cmake --build build
 ```
 
-L'exécutable est généré dans `build/box-game`.
+The executable is generated at `build/box-game`.
 
-## Lancer le jeu
+## Running the game
 
 ```sh
 ./build/box-game
 ```
 
-Pour le niveau **Difficile**, exportez votre clé API Anthropic avant de lancer :
+For the **Hard** level, export your Anthropic API key before launching:
 
 ```sh
 export ANTHROPIC_API_KEY="sk-ant-..."
 ./build/box-game
 ```
 
-Sans clé valide (ou en cas d'erreur réseau), le niveau Difficile se replie
-automatiquement sur l'heuristique du niveau Moyen.
+Without a valid key (or on network errors), the Hard level automatically
+falls back to the Medium level heuristic.
 
 ## Tests
 
@@ -61,28 +63,28 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Les tests unitaires couvrent les règles du jeu, l'IA heuristique et le parsing
-des réponses de Claude.
+The unit tests cover the game rules, the heuristic AI, and the parsing of
+Claude's responses.
 
-## Structure du projet
+## Project structure
 
 ```
 src/
-  main.c          Boucle de jeu raylib + machine à états (menu / partie)
-  game.{c,h}      Règles du morpion (plateau, coups, conditions de victoire)
-  ai.{c,h}        IA heuristique (facile / moyen)
-  claude.{c,h}    Client API Claude (libcurl) + wrapper asynchrone (pthread)
-  claude_parse.{c,h}  Construction du prompt + parsing JSON de la réponse
-  board.{c,h}     Rendu raylib (grille, pions, textes, menu)
+  main.c          raylib game loop + state machine (menu / game)
+  game.{c,h}      Tic-tac-toe rules (board, moves, win conditions)
+  ai.{c,h}        Heuristic AI (easy / medium)
+  claude.{c,h}    Claude API client (libcurl) + async wrapper (pthread)
+  claude_parse.{c,h}  Prompt construction + JSON response parsing
+  board.{c,h}     raylib rendering (grid, pieces, text, menu)
 tests/
-  test_game.c     Tests unitaires
-docs/             Specs et plans d'implémentation
+  test_game.c     Unit tests
+docs/             Specs and implementation plans
 ```
 
 ## Architecture
 
-Le jeu est piloté par une machine à états (`AppState` : menu / partie) et une
-sous-machine pour la partie (`PlayPhase` : attente, animation, attente IA,
-réflexion de Claude). L'appel à l'API Claude est lancé dans un thread séparé et
-interrogé sans bloquer la boucle de rendu (`ClaudeRequestStart` / `…Poll` /
-`…Free`), ce qui garde l'interface fluide pendant que Claude « réfléchit ».
+The game is driven by a state machine (`AppState`: menu / game) and a
+sub-machine for gameplay (`PlayPhase`: waiting, animation, AI wait, Claude
+thinking). The call to the Claude API runs in a separate thread and is polled
+without blocking the render loop (`ClaudeRequestStart` / `…Poll` / `…Free`),
+keeping the interface smooth while Claude "thinks".
