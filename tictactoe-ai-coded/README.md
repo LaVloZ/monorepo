@@ -130,3 +130,88 @@ Two things stand out for a reviewer:
 > `feat: menu screen`): the moment a real choice existed, the UI to make that
 > choice was built. We didn't speculate the menu up front; the second
 > difficulty is what justified it.
+
+## Prompt experimentation
+
+A little experiment: can Claude reconstruct the game's UI **without running it**,
+purely by reading the source code?
+
+> **Prompt**
+> *"Are you able — without launching the game, just by analyzing the code — to
+> draw the game's graphical interface?"*
+
+**Result.** Claude read `board.c`, `board.h` and `main.c`, then reconstructed both
+screens from the constants and drawing calls alone. Window: **600×700 px** (a
+600×600 board plus a 100 px status bar at the bottom). There are two screens.
+
+### Screen 1 — Menu (`STATE_MENU`)
+
+```
+┌──────────────────────────────────────────────┐  ← 600 px
+│                                                │
+│                                                │
+│              Tic Tac Toe                       │  y=110, size 50, dark gray, centered
+│                                                │
+│                                                │
+│         ┌────────────────────────┐             │
+│         │        Facile          │             │  button 0  y=220
+│         └────────────────────────┘             │  280×70, SKYBLUE fill, dark gray border
+│                                                │
+│         ┌────────────────────────┐             │
+│         │        Moyen           │             │  button 1  y=320
+│         └────────────────────────┘             │  DARKBLUE text, size 30, centered
+│                                                │
+│         ┌────────────────────────┐             │
+│         │       Difficile        │             │  button 2  y=420
+│         └────────────────────────┘             │
+│                                                │
+│                                                │
+│      Difficile = Claude (ANTHROPIC_API_KEY)    │  y=560, size 18, gray
+│                                                │
+└──────────────────────────────────────────────┘  height 700 px
+```
+
+### Screen 2 — Game (`STATE_PLAYING`)
+
+```
+┌──────────────┬──────────────┬──────────────┐  ← board 600×600
+│              │              │              │
+│      ╲  ╱    │              │      ╲  ╱    │   X = 2 red strokes (RED, width 8)
+│       ╲╱     │      ◯       │       ╲╱     │   O = blue ring (BLUE)
+│       ╱╲     │              │       ╱╲     │   inner margin 45 px
+│      ╱  ╲    │              │      ╱  ╲    │
+├──────────────┼──────────────┼──────────────┤  ← lines at x=200/400, y=200/400
+│              │              │              │     DARKGRAY, thickness 4
+│              │      ╲  ╱    │              │
+│      ◯       │       ╲╱     │              │
+│              │       ╱╲     │              │
+│              │      ╱  ╲    │              │
+├──────────────┼──────────────┼──────────────┤
+│              │              │              │   cells of 200×200
+│              │              │              │
+│              │              │      ◯       │
+│              │              │              │
+│              │              │              │
+├──────────────┴──────────────┴──────────────┤  y=600
+│                                              │  ← status bar (100 px)
+│  Au tour de X - Facile                       │  text at (20, 635), size 24, DARKGRAY
+│                                              │
+└──────────────────────────────────────────────┘  y=700
+```
+
+**Status bar** — a single line at the bottom-left, depending on state:
+
+- `Au tour de X - <Difficulty>` / `Au tour de O - <Difficulty>`
+- `X gagne ! Clic pour rejouer - <Difficulty>`
+- `O gagne ! Clic pour rejouer - <Difficulty>`
+- `Match nul - Clic pour rejouer - <Difficulty>`
+- `Reflexion...` in **MAROON** while Claude is thinking (Hard mode)
+
+**Visual details read from the code:**
+
+- `RAYWHITE` background on both screens.
+- The **X** is animated: first diagonal (`╲`), then the second (`╱`), each stroke
+  drawn progressively (0.20 s animation).
+- The **O** is a ring traced from 0° to 360° (a circle "winding up" effect).
+- Human player = **X** (red), AI = **O** (blue).
+- Window title: `Box Game — Tic Tac Toe`.

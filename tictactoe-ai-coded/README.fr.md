@@ -133,3 +133,89 @@ Deux points à retenir pour un relecteur :
 > (`feat: heuristique du niveau moyen` → `feat: écran de menu`) : dès qu'un vrai
 > choix a existé, on a construit l'interface pour faire ce choix. On n'a pas
 > anticipé le menu à l'avance ; c'est la deuxième difficulté qui l'a justifié.
+
+## Expérimentation de prompt
+
+Une petite expérience : Claude est-il capable de reconstituer l'interface du jeu
+**sans le lancer**, uniquement en lisant le code source ?
+
+> **Prompt**
+> *« Es-tu capable, sans lancer le jeu et juste en analysant le code, de dessiner
+> l'interface graphique du jeu ? »*
+
+**Résultat.** Claude a lu `board.c`, `board.h` et `main.c`, puis a reconstitué les
+deux écrans à partir des seules constantes et des appels de dessin. Fenêtre :
+**600×700 px** (un plateau de 600×600 plus une bande de statut de 100 px en bas).
+Il y a deux écrans.
+
+### Écran 1 — Menu (`STATE_MENU`)
+
+```
+┌──────────────────────────────────────────────┐  ← 600 px
+│                                                │
+│                                                │
+│              Tic Tac Toe                       │  y=110, taille 50, gris foncé, centré
+│                                                │
+│                                                │
+│         ┌────────────────────────┐             │
+│         │        Facile          │             │  bouton 0  y=220
+│         └────────────────────────┘             │  280×70, fond SKYBLUE, bordure gris foncé
+│                                                │
+│         ┌────────────────────────┐             │
+│         │        Moyen           │             │  bouton 1  y=320
+│         └────────────────────────┘             │  texte DARKBLUE, taille 30, centré
+│                                                │
+│         ┌────────────────────────┐             │
+│         │       Difficile        │             │  bouton 2  y=420
+│         └────────────────────────┘             │
+│                                                │
+│                                                │
+│      Difficile = Claude (ANTHROPIC_API_KEY)    │  y=560, taille 18, gris
+│                                                │
+└──────────────────────────────────────────────┘  hauteur 700 px
+```
+
+### Écran 2 — Jeu (`STATE_PLAYING`)
+
+```
+┌──────────────┬──────────────┬──────────────┐  ← plateau 600×600
+│              │              │              │
+│      ╲  ╱    │              │      ╲  ╱    │   X = 2 traits rouges (RED, ép. 8)
+│       ╲╱     │      ◯       │       ╲╱     │   O = anneau bleu (BLUE)
+│       ╱╲     │              │       ╱╲     │   marge interne 45 px
+│      ╱  ╲    │              │      ╱  ╲    │
+├──────────────┼──────────────┼──────────────┤  ← lignes à x=200/400, y=200/400
+│              │              │              │     DARKGRAY, épaisseur 4
+│              │      ╲  ╱    │              │
+│      ◯       │       ╲╱     │              │
+│              │       ╱╲     │              │
+│              │      ╱  ╲    │              │
+├──────────────┼──────────────┼──────────────┤
+│              │              │              │   cellules de 200×200
+│              │              │              │
+│              │              │      ◯       │
+│              │              │              │
+│              │              │              │
+├──────────────┴──────────────┴──────────────┤  y=600
+│                                              │  ← bande de statut (100 px)
+│  Au tour de X - Facile                       │  texte à (20, 635), taille 24, DARKGRAY
+│                                              │
+└──────────────────────────────────────────────┘  y=700
+```
+
+**Bande de statut** — une seule ligne en bas à gauche, selon l'état :
+
+- `Au tour de X - <Difficulté>` / `Au tour de O - <Difficulté>`
+- `X gagne ! Clic pour rejouer - <Difficulté>`
+- `O gagne ! Clic pour rejouer - <Difficulté>`
+- `Match nul - Clic pour rejouer - <Difficulté>`
+- `Reflexion...` en **MAROON** quand Claude réfléchit (mode Difficile)
+
+**Détails visuels lus dans le code :**
+
+- Fond `RAYWHITE` sur les deux écrans.
+- Le **X** s'anime : 1ʳᵉ diagonale (`╲`) puis la 2ᵉ (`╱`), chaque trait se dessine
+  progressivement (animation 0,20 s).
+- Le **O** est un anneau tracé de 0° à 360° (effet de cercle qui « s'enroule »).
+- Joueur humain = **X** (rouge), IA = **O** (bleu).
+- Titre de la fenêtre : `Box Game — Tic Tac Toe`.
