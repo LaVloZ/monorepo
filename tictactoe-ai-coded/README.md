@@ -88,3 +88,37 @@ sub-machine for gameplay (`PlayPhase`: waiting, animation, AI wait, Claude
 thinking). The call to the Claude API runs in a separate thread and is polled
 without blocking the render loop (`ClaudeRequestStart` / `…Poll` / `…Free`),
 keeping the interface smooth while Claude "thinks".
+
+## Implementation workflow
+
+The whole project was built with [Claude Code](https://claude.com/claude-code)
+and the **Superpowers** skills, in small, verifiable increments. Every feature
+went through the same three-step loop before a single line of production code
+was written:
+
+1. **Brainstorm & spec** — explore intent, constraints and design, captured as
+   a spec document in `docs/` (`brainstorming` skill).
+2. **Plan** — break the spec into an ordered, test-first plan
+   (`writing-plans` skill).
+3. **Build, test-first** — implement in tiny commits, tests before code,
+   refactor as needed (`test-driven-development` skill).
+
+The git history reflects this rhythm directly: it reads as a clean sequence of
+`spec → plan → feat/test` triplets. Five milestones, each shippable on its own:
+
+| # | Milestone | Incremental flow (read top-to-bottom in git) |
+|---|-----------|----------------------------------------------|
+| 1 | **Board rendering** | spec → plan → empty raylib window → 3×3 grid |
+| 2 | **Game rules (TDD)** | spec → plan → CTest harness → place a move → reject illegal moves → win detection → draw detection → random AI → draw X/O + status bar → full game loop |
+| 3 | **Difficulty levels** | spec → plan → `GameIsWinningMove` helper → refactor `AiChooseMove(Difficulty)` → medium heuristic (win / block / center / corner) → menu screen → menu/game state machine |
+| 4 | **Piece animation** | spec → plan → partial-piece drawing → animated stroke + AI delay |
+| 5 | **Hard level (Claude)** | spec → plan → prompt build + JSON parsing → async libcurl client (pthread) → Hard level + `PLAY_THINKING` phase |
+
+Two things stand out for a reviewer:
+
+- **Tests come first.** The rules engine (milestone 2) starts with the CTest
+  harness, then grows one behavior per commit — you can watch the suite drive
+  the design.
+- **Each step is small and reversible.** No commit mixes a spec, a plan and a
+  feature; every `feat:` is a single coherent behavior, so the history doubles
+  as a step-by-step walkthrough of how the game was built.
