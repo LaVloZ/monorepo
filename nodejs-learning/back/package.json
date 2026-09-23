@@ -1,0 +1,33 @@
+{
+  "name": "nodejs-learning",
+  "version": "1.0.0",
+  "description": "learning nodejs and express, maybe react also",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LaVloZ/nodejs-learning.git"
+  },
+  "author": "merrill",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/LaVloZ/nodejs-learning/issues"
+  },
+  "homepage": "https://github.com/LaVloZ/nodejs-learning#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@babel/preset-typescript": "^7.21.0",
+    "@types/jest": "^29.5.0",
+    "@types/supertest": "^2.0.12",
+    "jest": "^29.5.0",
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.0.5",
+    "typescript": "^5.0.3"
+  }
+}
