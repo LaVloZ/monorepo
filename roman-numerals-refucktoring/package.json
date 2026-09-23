@@ -1,0 +1,16 @@
+{
+  "name": "roman-numerals",
+  "version": "1.0.0",
+  "description": "Simple Roman numeral conversion (1–10000) in TypeScript",
+  "type": "module",
+  "main": "src/roman.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
