@@ -18,6 +18,7 @@ Regroupement de tous mes anciens dépôts GitHub en un seul repo : un dossier pa
 | `mars-rover` | Java / Gradle | Mars Rover kata |
 | `nodejs-learning` | JavaScript | Apprentissage Node.js (back + front) |
 | `nullobject` | Java | Null Object pattern |
+| `order` | Java / Maven | Exercice DDD : commande et expédition, non terminé |
 | `passwords` | Java / Gradle | Passwords kata |
 | `roman-numerals-refucktoring` | TypeScript | Roman numerals, refucktoring |
 | `SingSongKata` | Java / Maven | Sing Song kata |
@@ -29,4 +30,4 @@ Regroupement de tous mes anciens dépôts GitHub en un seul repo : un dossier pa
 
 - `main` contient un commit de merge par dépôt importé (`git log --first-parent`).
 - L'historique de chaque dépôt a été réécrit avec `git filter-repo --to-subdirectory-filter`, donc `git log` / `git blame` fonctionnent fichier par fichier dans chaque dossier.
-- Les branches autres que la branche principale de chaque dépôt sont conservées sous la forme `<dossier>/<branche>` : `app/dev-1.0`, `fizzbuzz-refucktoring/socrates-2023`, `order/master`, `tictactoe-ai-coded/docs/add-readme`.
+- Les branches autres que la branche principale de chaque dépôt sont conservées sous la forme `<dossier>/<branche>` : `app/dev-1.0`, `fizzbuzz-refucktoring/socrates-2023`, `tictactoe-ai-coded/docs/add-readme`.
