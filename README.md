@@ -7,7 +7,6 @@ Regroupement de tous mes anciens dépôts GitHub en un seul repo : un dossier pa
 | Dossier | Stack | Description |
 |---|---|---|
 | `abdessamed-bank-kata` | Java / Maven | Kata de la banque (énoncé : [kirinux/ing-bank-account-kata](https://github.com/kirinux/ing-bank-account-kata)) |
-| `angular` | Angular | Projet Angular |
 | `app` | Java / Maven | Application multi-modules (api-gateway, user, shared) |
 | `coffee-kata` | Java / Maven | Coffee kata |
 | `coin-machine` | Java / Maven | Coin machine kata |
@@ -17,10 +16,8 @@ Regroupement de tous mes anciens dépôts GitHub en un seul repo : un dossier pa
 | `game-of-life-kata` | Java / Maven | Game of Life kata |
 | `kata-pacifica` | Angular / TypeScript | Kata Pacifica |
 | `mars-rover` | Java / Gradle | Mars Rover kata |
-| `merrill` | — | Licence seulement |
 | `nodejs-learning` | JavaScript | Apprentissage Node.js (back + front) |
 | `nullobject` | Java | Null Object pattern |
-| `order` | — | Order |
 | `passwords` | Java / Gradle | Passwords kata |
 | `roman-numerals-refucktoring` | TypeScript | Roman numerals, refucktoring |
 | `SingSongKata` | Java / Maven | Sing Song kata |
