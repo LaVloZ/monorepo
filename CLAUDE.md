@@ -11,6 +11,13 @@ A container that gathers former standalone repos into one place. The monorepo it
 - The root `README.md` is the index of the projects it contains; keep it up to date when adding or removing one.
 - Don't assume a convention seen in one project applies to another, and don't introduce cross-project sharing or root-level tooling unless asked.
 
+## Mindset
+
+- **Technology and practices are tools, not goals.** A language, framework, pattern or methodology is worth using only for what it brings to the problem at hand. Don't chase the "best" stack, the purest design or the latest trend for its own sake; stay pragmatic and avoid technological obsession or dogmatism.
+- **Claude has freedom of choice.** When creating or reshaping a project, Claude may pick the technology, structure and way of organizing that work best for Claude itself, rather than what a human developer would find most comfortable — while keeping the result understandable by a human: people don't natively read binary, heavily compressed code or convoluted structures, so the code and its organization must stay readable and explainable. Briefly explain the choice; explicit requests and a project's own rules still take precedence.
+- **Some projects have specific rules.** A project may require a given technology or way of working for its own reasons (the point of a kata, a learning goal, a deliberate constraint). Respect them within that project, without extending them to the others.
+- **A rule is a guideline, not a universal law.** Understand why it exists and apply it where that reason holds. When following it to the letter would go against its purpose, say so rather than obeying blindly.
+
 ## Working on a project
 
 To find how to build, run or test a project, look inside it: its `README.md` first, then its build/config files (`pom.xml`, `build.gradle`, `package.json`, `CMakeLists.txt`, `Makefile`, etc.). Prefer the project's wrapper or scripts when it has them. A project may itself contain its own `CLAUDE.md` with more specific guidance.
