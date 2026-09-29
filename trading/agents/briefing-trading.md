@@ -62,7 +62,7 @@ On est dans un contexte de bulle IA. Donne une priorité particulière au secteu
   - **Matières premières** (or, argent, pétrole WTI/Brent, gaz, cuivre…) → prix spot ou future de référence en USD (once, baril, MMBtu, livre…) + variation %. Jamais l'ETF/ETC (GLD, IAU, SLV, USO, BNO, UNG, CPER…).
   - **Source PRINCIPALE : pages de cotation CNBC** `https://www.cnbc.com/quotes/<symbole>` (WebFetch, ou `curl -sL -A "Mozilla/5.0"` en bash) — lire dans le JSON de la page les champs `"last"` (niveau), `"change_pct"` (variation) et `"last_time"` (date/heure de la cote, pour le contexte « clôture JJ/MM »). Symboles : Nasdaq 100 `.NDX` · S&P 500 `.SPX` · Dow `.DJI` · CAC 40 `.FCHI` · Euro Stoxx 50 `.STOXX50E` · SOX `.SOX` · VIX `.VIX` · Or `@GC.1` · Argent `@SI.1` · Brent `@LCO.1` · WTI `@CL.1` · Gaz naturel `@NG.1` · Cuivre `@HG.1` · futures Nasdaq `@ND.1` / S&P `@SP.1`.
   - Secours : Google Finance (`https://www.google.com/finance/quote/NDX:INDEXNASDAQ`, `.INX:INDEXSP`…) puis WebSearch (« [nom de l'indice/matière] close [date] »). Jamais les pages ETF de stockanalysis.com pour un indice ou une matière première. Futures en complément hors séance, surtout à 07:00.
-  - Si le niveau du sous-jacent est introuvable → OMETTRE la tuile / le chiffre. Ne JAMAIS substituer le prix ou la variation d'un ETF.
+  - **Si le niveau du sous-jacent est introuvable (toutes les sources ont échoué) → le DIRE CLAIREMENT, ne jamais le cacher** : la tuile reste affichée en état « indisponible » (valeur « — », mention « ⚠️ Donnée non chargée », cf. template) et, si l'actif est cité dans une puce, écrire « niveau non disponible ». Ne JAMAIS omettre discrètement, ne JAMAIS substituer le prix ou la variation d'un ETF, ne JAMAIS reprendre un chiffre ancien sans le dater.
   - Les ETF ne sont cités QUE pour leurs flux (inflows/outflows) ou dans la carte Flux ETF & rotation — jamais comme proxy de prix d'un indice ou d'une matière première.
 
 ## Sujets à surveiller (pour le TRI, pas pour remplir)
@@ -100,8 +100,8 @@ Rapport HTML autonome (un seul fichier, aucune ressource externe, CSS inline dan
 
 ### Étage 1 — visible d'emblée (lisible en 1 minute)
 
-1. **Rangée de tuiles** (grille 4 colonnes, 2 sur mobile) : S&P 500, **Nasdaq 100**, Dow, CAC 40, Or, Brent (ou WTI), BTC, ETH. Indices et matières premières = niveau du sous-jacent, jamais un ETF (cf. règle générale). Chaque tuile = label, valeur, variation colorée (`up`/`down`) + contexte gris (« — clôture 25/09 », « — 24 h »…), note d'une ligne optionnelle. **Une tuile sans donnée réelle est OMISE.** Une tuile peut être remplacée si un autre actif domine la journée (ex : VIX un jour de krach).
-   - **Tuile Nasdaq = Nasdaq 100 (NDX), JAMAIS le Nasdaq Composite** (le trader suit NDX/NQ sur TradingView). Attention : la presse dit souvent « Nasdaq » pour le Composite — vérifier de quel indice vient le chiffre avant de remplir la tuile. **Tuile OBLIGATOIRE** (thème central du trader) : niveau de l'indice NDX en points via `https://www.cnbc.com/quotes/.NDX` (champs `last` / `change_pct` / `last_time`), secours Google Finance `NDX:INDEXNASDAQ` puis WebSearch « Nasdaq 100 NDX close [date] ». JAMAIS QQQ (cf. règle générale « jamais un ETF »). Ne l'omettre que si les trois sources ont échoué — jamais la remplacer par le Composite ou QQQ. Les niveaux du Composite peuvent en revanche être cités dans les puces si l'info s'y rapporte, en le nommant explicitement.
+1. **Rangée de tuiles** (grille 4 colonnes, 2 sur mobile) : S&P 500, **Nasdaq 100**, Dow, CAC 40, Or, Brent (ou WTI), BTC, ETH. Indices et matières premières = niveau du sous-jacent, jamais un ETF (cf. règle générale). Chaque tuile = label, valeur, variation colorée (`up`/`down`) + contexte gris (« — clôture 25/09 », « — 24 h »…), note d'une ligne optionnelle. **Tuile d'indice ou de matière première sans donnée réelle = affichée en état « indisponible »** (classe `tile na`, valeur « — », mention « ⚠️ Donnée non chargée ») — jamais omise discrètement. Pour BTC/ETH, même règle. Une tuile peut être remplacée si un autre actif domine la journée (ex : VIX un jour de krach).
+   - **Tuile Nasdaq = Nasdaq 100 (NDX), JAMAIS le Nasdaq Composite** (le trader suit NDX/NQ sur TradingView). Attention : la presse dit souvent « Nasdaq » pour le Composite — vérifier de quel indice vient le chiffre avant de remplir la tuile. **Tuile OBLIGATOIRE** (thème central du trader) : niveau de l'indice NDX en points via `https://www.cnbc.com/quotes/.NDX` (champs `last` / `change_pct` / `last_time`), secours Google Finance `NDX:INDEXNASDAQ` puis WebSearch « Nasdaq 100 NDX close [date] ». JAMAIS QQQ (cf. règle générale « jamais un ETF »). Si les trois sources ont échoué → tuile « Nasdaq 100 » en état indisponible (« ⚠️ Donnée non chargée ») — jamais omise, jamais remplacée par le Composite ou QQQ. Les niveaux du Composite peuvent en revanche être cités dans les puces si l'info s'y rapporte, en le nommant explicitement.
 2. **⚡ L'essentiel** : carte pleine largeur, 3 à 5 puces MAX — les seules infos qui comptent aujourd'hui. 1 phrase chacune, tag 🔴/🟡, point clé en `<strong>`, et l'implication trading en fin de puce introduite par « → » (règle « et alors ? »).
 3. **📅 Prochains catalyseurs** : une seule ligne sous l'essentiel (dans la même carte) avec les 2-3 événements majeurs à venir et leur horaire Paris (« PCE mer. 14h30 · EIA mer. 16h30 · NFP ven. 14h30 »).
 
@@ -164,6 +164,9 @@ Reprendre EXACTEMENT ce squelette — mêmes tokens CSS, mêmes classes, même s
   .tile .delta.down { color: var(--down); }
   .tile .delta .ctx { color: var(--muted); font-weight: 400; }
   .tile .note { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .tile.na { border-style: dashed; }
+  .tile.na .value { color: var(--muted); }
+  .tile.na .delta { color: var(--down); font-weight: 600; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: 18px 20px 14px; margin-bottom: 14px; }
   .card h2 { font-size: 15.5px; font-weight: 700; margin: 0 0 10px;
@@ -207,12 +210,17 @@ Reprendre EXACTEMENT ce squelette — mêmes tokens CSS, mêmes classes, même s
   </header>
 
   <div class="tiles">
-    <!-- Une tuile par actif ; OMETTRE toute tuile sans donnée réelle. -->
+    <!-- Une tuile par actif. Donnée introuvable → tuile « indisponible » ci-dessous, jamais omise. -->
     <div class="tile">
       <div class="label">[Actif]</div>
       <div class="value">[valeur]</div>
       <div class="delta up">[+X %] <span class="ctx">— [contexte]</span></div>
       <div class="note">[note optionnelle]</div>
+    </div>
+    <div class="tile na">
+      <div class="label">[Actif]</div>
+      <div class="value">—</div>
+      <div class="delta">⚠️ Donnée non chargée</div>
     </div>
     <!-- … S&P 500, Nasdaq 100 (NDX), Dow, CAC 40, Or, Brent/WTI, BTC, ETH -->
   </div>
@@ -259,9 +267,9 @@ Reprendre EXACTEMENT ce squelette — mêmes tokens CSS, mêmes classes, même s
 ## Règles strictes
 
 - Ne JAMAIS ajouter de section « Sources » ni de liste de liens — ni dans le rapport HTML, ni dans le chat.
-- Ne JAMAIS ajouter de note technique ni de méta-commentaire (ne pas dire qu'on a cherché, que l'API n'a pas répondu, qu'une donnée manque, etc.). Si une info manque, ne pas la mentionner.
+- Ne JAMAIS ajouter de note technique ni de méta-commentaire (ne pas dire qu'on a cherché, que l'API n'a pas répondu, qu'une donnée manque, etc.). Si une info manque, ne pas la mentionner — **SAUF les prix des indices, matières premières et cryptos des tuiles : leur échec de chargement est TOUJOURS signalé explicitement** (tuile « ⚠️ Donnée non chargée »).
 - Prioriser ce qui bouge les marchés. Concis, direct, zéro remplissage. **Les plafonds du « Budget de sortie » sont durs : en cas de doute, couper.**
 - Ne JAMAIS répéter une info déjà présente dans `agents/briefing-etat.md` sans évolution réelle (cf. « Mémoire anti-répétition »).
 - Toutes les heures du briefing sont en heure de Paris.
-- Ne JAMAIS fabriquer de chiffres, de citations ou d'événements. Une donnée (prix, flux, COT, citation, info « choquante ») doit être réelle et vérifiée. Une tuile ou une puce sans donnée réelle est supprimée, pas remplie.
+- Ne JAMAIS fabriquer de chiffres, de citations ou d'événements. Une donnée (prix, flux, COT, citation, info « choquante ») doit être réelle et vérifiée. Une puce sans donnée réelle est supprimée, pas remplie ; une tuile sans donnée réelle passe en état « ⚠️ Donnée non chargée ».
 - Respecter l'ordre de fin de run : PushNotification → SendUserFile (`display: "render"`) → mise à jour de `agents/briefing-etat.md` → dernier message du chat = puces « ⚡ L'essentiel » + « Prochains catalyseurs » uniquement, sans aucun texte après.
