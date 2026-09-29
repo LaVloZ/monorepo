@@ -1,4 +1,0 @@
-interface:
-  display_name: "Market Analysis"
-  short_description: "Technical and macro market reads"
-  default_prompt: "Use $market-analysis to analyze a crypto or stock with price action, levels, catalysts, and scenarios."
