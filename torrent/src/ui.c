@@ -39,7 +39,8 @@
 #define WM_APP_PROBE (WM_APP + 3)     /* one peer probed */
 #define WM_APP_PROBE_END (WM_APP + 4) /* one probe thread finished */
 
-#define PROBE_THREADS 16
+#define PROBE_THREADS 32
+#define DISCOVERY_NUMWANT 200 /* most trackers cap the answer around 200 peers */
 #define PROBE_TIMEOUT_MS 5000
 
 enum {
@@ -77,6 +78,9 @@ enum {
     ID_RAW_EDIT,
     ID_LOG,
     ID_PROBE,
+    ID_DISC,
+    ID_DISC_COPY,
+    ID_DISC_LV,
     ID_LABEL, /* all static labels */
 };
 
@@ -120,7 +124,25 @@ struct Job {
     tr_ctx ctx;
     volatile long cancel;
     HANDLE thread;
+    int disc_phase; /* 0, or the discovery step this announce belongs to (1 started, 3 stopped) */
 };
+
+/* "Trouver les peers joignables": announce everywhere, probe every peer, leave the swarms. */
+typedef struct {
+    int phase; /* 1 announces, 2 probing, 3 stopped announces, 4 done */
+    int pending; /* announces left in the current step */
+    int stop_requested;
+    tr_params params;
+    size_t num_pieces;
+    tr_peer *peers; /* unique ip:port over all trackers */
+    unsigned *sources; /* number of trackers that returned each peer */
+    size_t npeers;
+    probe_result *probes;
+    size_t probed;
+    TrackerEntry **ok; /* trackers that answered step 1, told "stopped" in step 3 */
+    size_t nok;
+    size_t asked;
+} Discovery;
 
 /* Peer probing of one history entry, spread over PROBE_THREADS threads. */
 typedef struct {
@@ -136,6 +158,7 @@ typedef struct {
     HANDLE threads[PROBE_THREADS];
     int nthreads, ended;
     size_t done;
+    int for_disc; /* results go to the discovery instead of a history entry */
 } ProbeSession;
 
 typedef struct {
@@ -165,6 +188,7 @@ static struct {
     HWND announce, cancel, status;
     HWND lbl_history, clear_hist, history_lv, tab, resp_lv, copy_req, req_edit, peers_label, peers_search, probe_btn,
         peers_lv, raw_edit;
+    HWND disc_btn, disc_label, disc_copy, disc_lv;
     HWND lbl_log, log;
     int status_err;
 
@@ -187,7 +211,13 @@ static struct {
     tr_ctx ctx;   /* template copied into each Job */
     int running;  /* announces in flight */
     ProbeSession *probe;
+    Discovery *disc; /* last discovery (kept after it ends to show its result) */
 } g;
+
+static int disc_running(void)
+{
+    return g.disc && g.disc->phase >= 1 && g.disc->phase <= 3;
+}
 
 static const tr_event event_values[] = { TR_EVENT_STARTED, TR_EVENT_COMPLETED, TR_EVENT_STOPPED, TR_EVENT_NONE };
 
@@ -481,12 +511,15 @@ static TrackerEntry *selected_tracker(void)
 static void update_buttons(void)
 {
     TrackerEntry *e = selected_tracker();
-    EnableWindow(g.announce, e && !e->job);
-    EnableWindow(g.cancel, e && e->job);
+    int disc = disc_running();
+    EnableWindow(g.announce, e && !e->job && !disc);
+    EnableWindow(g.cancel, e && e->job && !disc);
     EnableWindow(g.open, !g.running && !g.probe);
     EnableWindow(g.clear_hist, e && !(g.probe && g.probe->entry == e));
-    set_text(g.probe_btn, g.probe ? "Arrêter le sondage" : "Sonder les peers");
-    EnableWindow(g.probe_btn, g.probe || g.nshown > 0);
+    set_text(g.probe_btn, g.probe && !g.probe->for_disc ? "Arrêter le sondage" : "Sonder les peers");
+    EnableWindow(g.probe_btn, !disc && (g.probe || g.nshown > 0));
+    set_text(g.disc_btn, disc ? "Arrêter la recherche" : "Trouver les peers joignables");
+    EnableWindow(g.disc_btn, disc ? g.disc->phase != 3 : (!g.running && !g.probe && g.ntrackers > 0));
 }
 
 static void tracker_row(TrackerEntry *e, int pos)
@@ -1161,6 +1194,9 @@ static void job_free(Job *j)
     free(j);
 }
 
+static void disc_collect(TrackerEntry *e, const tr_result *r);
+static void disc_job_finished(int phase);
+
 static void job_done(Job *j)
 {
     if (j->thread) {
@@ -1169,6 +1205,7 @@ static void job_done(Job *j)
         j->thread = NULL;
     }
     TrackerEntry *e = j->entry;
+    int disc_phase = j->disc_phase;
     e->job = NULL;
     g.running--;
     if (g.closing) {
@@ -1177,6 +1214,8 @@ static void job_done(Job *j)
     }
 
     tr_result *r = &j->res;
+    if (disc_phase == 1 && g.disc)
+        disc_collect(e, r);
     e->status_err = r->status != TR_OK;
     snprintf(e->status, sizeof e->status, "%s", r->status == TR_OK ? "OK" : tr_status_name(r->status));
     if (r->has_complete || r->has_incomplete)
@@ -1205,6 +1244,8 @@ static void job_done(Job *j)
             tracker_row(e, (int)i);
     if (selected_tracker() == e)
         refresh_history();
+    if (disc_phase && g.disc)
+        disc_job_finished(disc_phase);
     update_buttons();
 }
 
@@ -1216,37 +1257,34 @@ static DWORD WINAPI worker(LPVOID p)
     return 0;
 }
 
-static void start_announce(void)
+/* Starts an announce to e in its own thread. 0 if it could not start. */
+static int launch_job(TrackerEntry *e, const tr_params *p, int disc_phase)
 {
-    TrackerEntry *e = selected_tracker();
-    if (!e) {
-        set_status(1, "Sélectionne un tracker dans la liste (ou ajoute une URL).");
-        return;
-    }
     if (e->job)
-        return; /* one announce at a time per tracker (its connection_id and tracker id are shared) */
-    tr_params p;
-    char err[256];
-    if (!collect_params(&p, err, sizeof err)) {
-        set_status(1, "%s", err);
-        log_now(TR_LOG_ERROR, "Paramètres invalides : %s", err);
-        return;
-    }
+        return 0; /* one announce at a time per tracker (its connection_id and tracker id are shared) */
     Job *j = calloc(1, sizeof *j);
     if (!j)
-        return;
+        return 0;
     j->entry = e;
     j->url = xstrdup(e->url);
-    j->params = p;
+    j->params = *p;
     j->trackerid = xstrdup(e->state.trackerid);
     j->params.trackerid = j->trackerid;
+    j->disc_phase = disc_phase;
     now_str(j->time);
     j->ctx = g.ctx;
     j->ctx.log_ud = j;
     j->ctx.cancel = &j->cancel;
+    if (disc_phase) {
+        /* A dead tracker must not stall the search for an hour of BEP 15 retransmissions:
+         * UDP waits 5 s then 10 s, HTTP 15 s. */
+        j->ctx.udp_base_timeout_ms = 5000;
+        j->ctx.udp_max_retries = 1;
+        j->ctx.http_timeout_ms = 15000;
+    }
 
-    log_now(TR_LOG_INFO, "── [%s] Announce (event=%s) → %s", e->label, tr_event_name(p.event), e->url);
-    set_status(0, "Announce en cours : %s (tu peux en lancer d'autres sur d'autres trackers)", e->label);
+    log_now(TR_LOG_INFO, "── [%s] Announce (event=%s, numwant=%" PRId32 ", left=%" PRIu64 ") → %s", e->label,
+            tr_event_name(p->event), p->numwant, p->left, e->url);
     e->job = j;
     g.running++;
     snprintf(e->status, sizeof e->status, "en cours…");
@@ -1260,7 +1298,27 @@ static void start_announce(void)
         g.running--;
         job_free(j);
         set_status(1, "Impossible de créer le thread réseau.");
+        return 0;
     }
+    return 1;
+}
+
+static void start_announce(void)
+{
+    TrackerEntry *e = selected_tracker();
+    if (!e) {
+        set_status(1, "Sélectionne un tracker dans la liste (ou ajoute une URL).");
+        return;
+    }
+    tr_params p;
+    char err[256];
+    if (!collect_params(&p, err, sizeof err)) {
+        set_status(1, "%s", err);
+        log_now(TR_LOG_ERROR, "Paramètres invalides : %s", err);
+        return;
+    }
+    if (launch_job(e, &p, 0))
+        set_status(0, "Announce en cours : %s (tu peux en lancer d'autres sur d'autres trackers)", e->label);
     update_buttons();
 }
 
@@ -1291,6 +1349,48 @@ static DWORD WINAPI probe_worker(LPVOID arg)
     return 0;
 }
 
+/* Starts probing `peers` in PROBE_THREADS threads. Returns 0 if nothing could start. */
+static int launch_probe(const tr_peer *peers, size_t n, const tr_params *params, size_t num_pieces,
+                        TrackerEntry *entry, uint32_t hist_id, int for_disc)
+{
+    if (g.probe || !n)
+        return 0;
+    ProbeSession *s = calloc(1, sizeof *s);
+    if (!s)
+        return 0;
+    s->peers = malloc(n * sizeof *s->peers);
+    if (!s->peers) {
+        free(s);
+        return 0;
+    }
+    memcpy(s->peers, peers, n * sizeof *s->peers);
+    s->npeers = n;
+    s->entry = entry;
+    s->hist_id = hist_id;
+    s->for_disc = for_disc;
+    memcpy(s->info_hash, params->info_hash, 20);
+    memcpy(s->peer_id, params->peer_id, 20);
+    s->num_pieces = num_pieces;
+
+    g.probe = s;
+    int want = n < PROBE_THREADS ? (int)n : PROBE_THREADS;
+    for (int i = 0; i < want; i++) {
+        s->threads[s->nthreads] = CreateThread(NULL, 0, probe_worker, s, 0, NULL);
+        if (s->threads[s->nthreads])
+            s->nthreads++;
+    }
+    if (!s->nthreads) {
+        g.probe = NULL;
+        free(s->peers);
+        free(s);
+        set_status(1, "Impossible de créer les threads de sondage.");
+        return 0;
+    }
+    log_now(TR_LOG_INFO, "Sondage de %zu peer(s) (TCP, handshake BitTorrent, %d connexions en parallèle)%s", n,
+            s->nthreads, num_pieces ? "" : " — nombre de pièces inconnu (pas de .torrent chargé)");
+    return 1;
+}
+
 static void start_probe(void)
 {
     if (g.probe || !g.shown_entry || !g.nshown)
@@ -1298,42 +1398,13 @@ static void start_probe(void)
     hist_entry *h = history_find(&g.shown_entry->hist, g.shown_hist_id);
     if (!h)
         return;
-    ProbeSession *s = calloc(1, sizeof *s);
-    if (!s)
-        return;
-    s->peers = malloc(h->result.npeers * sizeof *s->peers);
-    if (!s->peers) {
-        free(s);
-        return;
-    }
-    memcpy(s->peers, h->result.peers, h->result.npeers * sizeof *s->peers);
-    s->npeers = h->result.npeers;
-    s->entry = g.shown_entry;
-    s->hist_id = h->id;
-    memcpy(s->info_hash, h->result.params.info_hash, 20);
-    memcpy(s->peer_id, h->result.params.peer_id, 20);
-    s->num_pieces = g.shown_num_pieces;
-
     /* Results go into the history entry, so they stay with this announce. */
     free(h->probes);
-    h->probes = calloc(s->npeers, sizeof *h->probes);
-
-    g.probe = s;
-    int want = s->npeers < PROBE_THREADS ? (int)s->npeers : PROBE_THREADS;
-    for (int i = 0; i < want; i++) {
-        s->threads[s->nthreads] = CreateThread(NULL, 0, probe_worker, s, 0, NULL);
-        if (s->threads[s->nthreads])
-            s->nthreads++;
-    }
-    log_now(TR_LOG_INFO, "Sondage de %zu peer(s) (TCP, handshake BitTorrent, %d connexions en parallèle)%s",
-            s->npeers, s->nthreads, s->num_pieces ? "" : " — nombre de pièces inconnu (pas de .torrent chargé)");
-    if (!s->nthreads) {
-        g.probe = NULL;
+    h->probes = calloc(h->result.npeers, sizeof *h->probes);
+    if (!launch_probe(h->result.peers, h->result.npeers, &h->result.params, g.shown_num_pieces, g.shown_entry, h->id,
+                      0)) {
         free(h->probes);
         h->probes = NULL;
-        free(s->peers);
-        free(s);
-        set_status(1, "Impossible de créer les threads de sondage.");
     }
     fill_peers();
     update_buttons();
@@ -1347,11 +1418,28 @@ static void stop_probe(void)
     }
 }
 
+static void fill_disc(void);
+static void disc_probing_done(void);
+static void show_tab(int i);
+
 static void on_probe_result(ProbeMsg *m)
 {
     ProbeSession *s = m->session;
     s->done++;
-    hist_entry *h = g.closing ? NULL : history_find(&s->entry->hist, s->hist_id);
+    if (g.closing) {
+        free(m);
+        return;
+    }
+    if (s->for_disc) {
+        if (g.disc && g.disc->probes && m->index < g.disc->npeers) {
+            g.disc->probes[m->index] = m->result;
+            g.disc->probed++;
+        }
+        free(m);
+        fill_disc();
+        return;
+    }
+    hist_entry *h = history_find(&s->entry->hist, s->hist_id);
     if (h && h->probes && m->index < s->npeers)
         h->probes[m->index] = m->result;
     free(m);
@@ -1367,7 +1455,8 @@ static void on_probe_end(ProbeSession *s)
         WaitForSingleObject(s->threads[i], INFINITE);
         CloseHandle(s->threads[i]);
     }
-    if (!g.closing) {
+    int for_disc = s->for_disc;
+    if (!g.closing && !for_disc) {
         hist_entry *h = history_find(&s->entry->hist, s->hist_id);
         size_t ok = 0, seed = 0, wrong = 0;
         for (size_t i = 0; h && h->probes && i < s->npeers; i++) {
@@ -1381,10 +1470,266 @@ static void on_probe_end(ProbeSession *s)
     g.probe = NULL;
     free(s->peers);
     free(s);
-    if (!g.closing) {
+    if (g.closing)
+        return;
+    if (for_disc)
+        disc_probing_done();
+    else
         fill_peers();
-        update_buttons();
+    update_buttons();
+}
+
+/* ======================================================================
+ * Discovery: announce to every tracker (numwant max), probe all peers, keep the
+ * reachable ones, then tell the trackers we left (event=stopped, left=0).
+ * ====================================================================== */
+
+static void disc_free(Discovery *d)
+{
+    if (!d)
+        return;
+    free(d->peers);
+    free(d->sources);
+    free(d->probes);
+    free(d->ok);
+    free(d);
+}
+
+static int disc_reachable(const Discovery *d, size_t i)
+{
+    return d->probes && d->probes[i].status == PROBE_OK;
+}
+
+static void fill_disc(void)
+{
+    Discovery *d = g.disc;
+    SendMessageW(g.disc_lv, WM_SETREDRAW, FALSE, 0);
+    ListView_DeleteAllItems(g.disc_lv);
+    size_t shown = 0, seeders = 0;
+    for (size_t i = 0; d && i < d->npeers; i++) {
+        if (!disc_reachable(d, i))
+            continue;
+        const tr_peer *p = &d->peers[i];
+        const probe_result *pr = &d->probes[i];
+        char idx[16], port[8], src[16], compl[64], client[96], pid[100];
+        snprintf(idx, sizeof idx, "%zu", shown + 1);
+        snprintf(port, sizeof port, "%u", p->port);
+        snprintf(src, sizeof src, "%u", d->sources[i]);
+        probe_completion_text(pr, d->num_pieces, compl, sizeof compl);
+        probe_client_text(pr, client, sizeof client);
+        if (pr->has_peer_id)
+            tr_peer_id_str(pr->peer_id, 20, pid, sizeof pid);
+        else
+            snprintf(pid, sizeof pid, "—");
+        int seed = probe_is_seeder(pr, d->num_pieces);
+        seeders += seed;
+        const char *cols[] = { idx, p->ip, port, src, compl, client, pid };
+        lv_add(g.disc_lv, seed ? C_OK : C_NORMAL, 7, cols);
+        shown++;
     }
+    SendMessageW(g.disc_lv, WM_SETREDRAW, TRUE, 0);
+
+    char buf[400];
+    if (!d)
+        snprintf(buf, sizeof buf,
+                 "« Trouver les peers joignables » : announce à tous les trackers (numwant=%d), sondage de tous "
+                 "les peers, puis event=stopped.",
+                 DISCOVERY_NUMWANT);
+    else if (d->phase == 1)
+        snprintf(buf, sizeof buf, "Étape 1/3 : announce à %zu tracker(s)… %d en attente, %zu peer(s) unique(s).",
+                 d->asked, d->pending, d->npeers);
+    else if (d->phase == 2)
+        snprintf(buf, sizeof buf, "Étape 2/3 : sondage %zu/%zu… %zu joignable(s), %zu seeder(s).", d->probed,
+                 d->npeers, shown, seeders);
+    else if (d->phase == 3)
+        snprintf(buf, sizeof buf, "Étape 3/3 : retrait des swarms (event=stopped, left=0)… %zu joignable(s).", shown);
+    else
+        snprintf(buf, sizeof buf,
+                 "Terminé : %zu peer(s) joignable(s) dont %zu seeder(s), sur %zu peer(s) unique(s) venant de %zu/%zu "
+                 "tracker(s).%s%s",
+                 shown, seeders, d->npeers, d->nok, d->asked, d->num_pieces ? "" : " (nombre de pièces inconnu)",
+                 d->stop_requested ? " Recherche arrêtée : peers pas tous sondés." : "");
+    set_text(g.disc_label, buf);
+}
+
+static void disc_collect(TrackerEntry *e, const tr_result *r)
+{
+    Discovery *d = g.disc;
+    if (r->status != TR_OK)
+        return;
+    TrackerEntry **ok = realloc(d->ok, (d->nok + 1) * sizeof *ok);
+    if (ok) {
+        d->ok = ok;
+        d->ok[d->nok++] = e;
+    }
+    size_t added = 0;
+    for (size_t i = 0; i < r->npeers; i++) {
+        const tr_peer *p = &r->peers[i];
+        size_t k = 0;
+        while (k < d->npeers && !(d->peers[k].port == p->port && strcmp(d->peers[k].ip, p->ip) == 0))
+            k++;
+        if (k < d->npeers) {
+            d->sources[k]++;
+            continue;
+        }
+        tr_peer *np = realloc(d->peers, (d->npeers + 1) * sizeof *np);
+        if (!np)
+            break;
+        d->peers = np;
+        unsigned *ns = realloc(d->sources, (d->npeers + 1) * sizeof *ns);
+        if (!ns)
+            break;
+        d->sources = ns;
+        d->peers[d->npeers] = *p;
+        d->sources[d->npeers] = 1;
+        d->npeers++;
+        added++;
+    }
+    log_now(TR_LOG_INFO, "Recherche : %s a donné %zu peer(s), %zu nouveau(x) (total %zu)", e->label, r->npeers, added,
+            d->npeers);
+}
+
+static void disc_finish(void)
+{
+    Discovery *d = g.disc;
+    d->phase = 4;
+    size_t ok = 0;
+    for (size_t i = 0; i < d->npeers; i++)
+        ok += disc_reachable(d, i);
+    log_now(TR_LOG_INFO, "Recherche terminée : %zu peer(s) joignable(s) sur %zu (onglet « Joignables »)", ok,
+            d->npeers);
+    set_status(0, "Recherche terminée : %zu peer(s) joignable(s).", ok);
+    fill_disc();
+}
+
+/* Step 3: tell every tracker that answered that we leave. */
+static void disc_leave(void)
+{
+    Discovery *d = g.disc;
+    d->phase = 3;
+    d->pending = 0;
+    tr_params p = d->params;
+    p.event = TR_EVENT_STOPPED;
+    p.left = 0;
+    p.numwant = 0;
+    for (size_t i = 0; i < d->nok; i++)
+        if (launch_job(d->ok[i], &p, 3))
+            d->pending++;
+    log_now(TR_LOG_INFO, "Recherche, étape 3/3 : event=stopped, left=0 vers %d tracker(s)", d->pending);
+    fill_disc();
+    if (!d->pending)
+        disc_finish();
+}
+
+static void disc_probing_done(void)
+{
+    if (g.disc && g.disc->phase == 2)
+        disc_leave();
+}
+
+static void disc_job_finished(int phase)
+{
+    Discovery *d = g.disc;
+    if (d->pending > 0)
+        d->pending--;
+    if (phase == 1 && d->phase == 1) {
+        fill_disc();
+        if (d->pending)
+            return;
+        if (d->stop_requested || !d->npeers) {
+            disc_leave();
+            return;
+        }
+        d->phase = 2;
+        d->probes = calloc(d->npeers, sizeof *d->probes);
+        log_now(TR_LOG_INFO, "Recherche, étape 2/3 : sondage de %zu peer(s) unique(s)", d->npeers);
+        if (!d->probes || !launch_probe(d->peers, d->npeers, &d->params, d->num_pieces, NULL, 0, 1))
+            disc_leave();
+        else
+            fill_disc();
+    } else if (phase == 3 && d->phase == 3 && !d->pending) {
+        disc_finish();
+    }
+}
+
+static void disc_start(void)
+{
+    if (g.running || g.probe || disc_running())
+        return;
+    tr_params p;
+    char err[256];
+    if (!collect_params(&p, err, sizeof err)) {
+        set_status(1, "%s", err);
+        log_now(TR_LOG_ERROR, "Paramètres invalides : %s", err);
+        return;
+    }
+    disc_free(g.disc);
+    g.disc = calloc(1, sizeof *g.disc);
+    if (!g.disc)
+        return;
+    Discovery *d = g.disc;
+    p.event = TR_EVENT_STARTED;
+    p.numwant = DISCOVERY_NUMWANT;
+    d->params = p;
+    d->num_pieces = pieces_for(p.info_hash);
+    d->phase = 1;
+    log_now(TR_LOG_INFO, "Recherche des peers joignables, étape 1/3 : announce à tous les trackers (numwant=%d)",
+            DISCOVERY_NUMWANT);
+    for (size_t i = 0; i < g.ntrackers; i++) {
+        if (strcmp(g.trackers[i]->transport, "invalide") == 0)
+            continue;
+        if (launch_job(g.trackers[i], &p, 1))
+            d->pending++;
+    }
+    d->asked = (size_t)d->pending;
+    if (!d->pending) {
+        set_status(1, "Aucun tracker valide à interroger.");
+        disc_free(g.disc);
+        g.disc = NULL;
+        return;
+    }
+    set_status(0, "Recherche en cours : %zu tracker(s) interrogé(s)…", d->asked);
+    TabCtrl_SetCurSel(g.tab, 4);
+    show_tab(4);
+    fill_disc();
+    update_buttons();
+}
+
+static void disc_stop(void)
+{
+    Discovery *d = g.disc;
+    if (!disc_running() || d->phase == 3)
+        return;
+    d->stop_requested = 1;
+    log_now(TR_LOG_WARN, "Arrêt de la recherche demandé (les trackers déjà contactés recevront event=stopped)");
+    if (d->phase == 1) {
+        for (size_t i = 0; i < g.ntrackers; i++)
+            if (g.trackers[i]->job && g.trackers[i]->job->disc_phase == 1)
+                tr_cancel_set(&g.trackers[i]->job->cancel, 1);
+    } else if (d->phase == 2 && g.probe) {
+        tr_cancel_set(&g.probe->cancel, 1);
+    }
+}
+
+static void copy_reachable(void)
+{
+    Discovery *d = g.disc;
+    if (!d)
+        return;
+    bbuf b;
+    bbuf_init(&b);
+    size_t n = 0;
+    for (size_t i = 0; i < d->npeers; i++) {
+        if (!disc_reachable(d, i))
+            continue;
+        const tr_peer *p = &d->peers[i];
+        bbuf_printf(&b, strchr(p->ip, ':') ? "[%s]:%u\r\n" : "%s:%u\r\n", p->ip, p->port);
+        n++;
+    }
+    char *s = bbuf_steal(&b);
+    copy_to_clipboard(s);
+    free(s);
+    set_status(0, "%zu peer(s) joignable(s) copié(s) (ip:port, un par ligne).", n);
 }
 
 /* ======================================================================
@@ -1427,9 +1772,12 @@ static void clear_history(void)
 
 static void show_tab(int i)
 {
-    int sw[4] = { SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE };
-    if (i >= 0 && i < 4)
+    int sw[5] = { SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE };
+    if (i >= 0 && i < 5)
         sw[i] = SW_SHOW;
+    ShowWindow(g.disc_label, sw[4]);
+    ShowWindow(g.disc_copy, sw[4]);
+    ShowWindow(g.disc_lv, sw[4]);
     ShowWindow(g.resp_lv, sw[0]);
     ShowWindow(g.copy_req, sw[1]);
     ShowWindow(g.req_edit, sw[1]);
@@ -1447,8 +1795,9 @@ static void on_double_click(int id, int row)
     char *text = NULL;
     if (id == ID_INFO_LV || id == ID_RESP_LV || id == ID_TRACKERS_LV) {
         text = lv_text(id == ID_INFO_LV ? g.info_lv : id == ID_RESP_LV ? g.resp_lv : g.trackers_lv, row, 1);
-    } else if (id == ID_PEERS_LV) {
-        char *ip = lv_text(g.peers_lv, row, 1), *port = lv_text(g.peers_lv, row, 2);
+    } else if (id == ID_PEERS_LV || id == ID_DISC_LV) {
+        HWND lv = id == ID_PEERS_LV ? g.peers_lv : g.disc_lv;
+        char *ip = lv_text(lv, row, 1), *port = lv_text(lv, row, 2);
         bbuf b;
         bbuf_init(&b);
         bbuf_printf(&b, strchr(ip ? ip : "", ':') ? "[%s]:%s" : "%s:%s", ip ? ip : "", port ? port : "");
@@ -1556,6 +1905,7 @@ static void create_controls(void)
 
     g.announce = button(L"Announce", ID_ANNOUNCE);
     g.cancel = button(L"Annuler", ID_CANCEL);
+    g.disc_btn = button(L"Trouver les peers joignables", ID_DISC);
     g.status = ctl(0, WC_STATICW, L"Ouvre un .torrent ou ajoute une URL de tracker.", SS_LEFT | SS_NOPREFIX, ID_STATUS);
 
     g.lbl_history = label(L"Historique des announces (tracker sélectionné)");
@@ -1566,8 +1916,8 @@ static void create_controls(void)
     g.history_lv = make_listview(ID_HISTORY_LV, h_cols, h_w, 7);
 
     g.tab = ctl(0, WC_TABCONTROLW, L"", WS_CLIPSIBLINGS | WS_TABSTOP, ID_TAB);
-    static const wchar_t *const tabs[] = { L"Réponse", L"Requête", L"Peers", L"Raw" };
-    for (int i = 0; i < 4; i++) {
+    static const wchar_t *const tabs[] = { L"Réponse", L"Requête", L"Peers", L"Raw", L"Joignables" };
+    for (int i = 0; i < 5; i++) {
         TCITEMW ti;
         memset(&ti, 0, sizeof ti);
         ti.mask = TCIF_TEXT;
@@ -1588,6 +1938,12 @@ static void create_controls(void)
     static const int p_w[] = { 36, 120, 50, 155, 100, 130, 120, 95 };
     g.peers_lv = make_listview(ID_PEERS_LV, p_cols, p_w, 8);
     g.raw_edit = text_view(ID_RAW_EDIT, 0);
+    g.disc_label = label(L"");
+    g.disc_copy = button(L"Copier la liste (ip:port)", ID_DISC_COPY);
+    static const wchar_t *const d_cols[] = { L"#",          L"IP",     L"Port",   L"Trackers",
+                                             L"Complétion", L"Client", L"peer_id" };
+    static const int d_w[] = { 36, 140, 55, 65, 140, 140, 160 };
+    g.disc_lv = make_listview(ID_DISC_LV, d_cols, d_w, 7);
 
     g.lbl_log = label(L"Journal");
     g.log = ctl(WS_EX_CLIENTEDGE, MSFTEDIT_CLASS, L"",
@@ -1705,8 +2061,10 @@ static void layout(void)
     mv(g.chk_compact, x, y, half, RH);
     mv(g.chk_noverify, x2, y, half, RH);
     y += RH + gap;
-    mv(g.announce, x, y, w - S(130) - gap, BH);
-    mv(g.cancel, x + w - S(130), y, S(130), BH);
+    int cw = S(100), dw = S(210);
+    mv(g.announce, x, y, w - cw - dw - 2 * gap, BH);
+    mv(g.disc_btn, x + w - cw - dw - gap, y, dw, BH);
+    mv(g.cancel, x + w - cw, y, cw, BH);
     y += BH + gap;
     mv(g.status, x, y, w, S(40));
 
@@ -1733,6 +2091,10 @@ static void layout(void)
     mv(g.peers_label, tr.left + sw + pbw + 4 * gap, tr.top + gap, pw - sw - pbw - 5 * gap, RH);
     mv(g.peers_lv, tr.left, tr.top + RH + 2 * gap, pw, ph - RH - 2 * gap);
     mv(g.raw_edit, tr.left, tr.top, pw, ph);
+    int dcw = S(200);
+    mv(g.disc_copy, tr.left + gap, tr.top + gap, dcw, RH);
+    mv(g.disc_label, tr.left + dcw + 3 * gap, tr.top + gap, pw - dcw - 4 * gap, RH);
+    mv(g.disc_lv, tr.left, tr.top + RH + 2 * gap, pw, ph - RH - 2 * gap);
 
     /* Log */
     mv(g.lbl_log, M, logTop, W - 2 * M, RH);
@@ -1743,6 +2105,7 @@ static void layout(void)
     lv_stretch(g.history_lv, 6);
     lv_stretch(g.resp_lv, 1);
     lv_stretch(g.peers_lv, 6);
+    lv_stretch(g.disc_lv, 6);
 }
 
 /* ======================================================================
@@ -1753,7 +2116,8 @@ static LRESULT on_notify(NMHDR *nh)
 {
     int id = (int)nh->idFrom;
     if (nh->code == NM_CUSTOMDRAW &&
-        (id == ID_TRACKERS_LV || id == ID_HISTORY_LV || id == ID_RESP_LV || id == ID_PEERS_LV)) {
+        (id == ID_TRACKERS_LV || id == ID_HISTORY_LV || id == ID_RESP_LV || id == ID_PEERS_LV ||
+         id == ID_DISC_LV)) {
         NMLVCUSTOMDRAW *cd = (NMLVCUSTOMDRAW *)nh;
         if (cd->nmcd.dwDrawStage == CDDS_PREPAINT)
             return CDRF_NOTIFYITEMDRAW;
@@ -1822,7 +2186,18 @@ static void on_command(int id, int code)
         }
         break;
     }
+    case ID_DISC:
+        if (disc_running())
+            disc_stop();
+        else
+            disc_start();
+        break;
+    case ID_DISC_COPY:
+        copy_reachable();
+        break;
     case ID_PROBE:
+        if (g.probe && g.probe->for_disc)
+            break;
         if (g.probe)
             stop_probe();
         else
@@ -1998,6 +2373,7 @@ int ui_run(HINSTANCE inst, int show)
     set_new_key();
     show_tab(0);
     clear_details();
+    fill_disc();
     update_buttons();
     ShowWindow(hwnd, show);
     UpdateWindow(hwnd);
@@ -2024,6 +2400,7 @@ int ui_run(HINSTANCE inst, int show)
         torrent_free(&g.tor);
     free(g.copy_text);
     free(g.shown_peers);
+    disc_free(g.disc);
     DeleteObject(g.font);
     DeleteObject(g.font_bold);
     DeleteObject(g.font_mono);

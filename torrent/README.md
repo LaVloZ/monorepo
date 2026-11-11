@@ -27,6 +27,18 @@ voit :
 - **Historique** : les 100 derniers announces de chaque tracker (en mémoire), cliquables ;
 - **Journal** horodaté : announces, retransmissions, réutilisation/renouvellement du `connection_id`, erreurs.
 
+Le bouton **Trouver les peers joignables** enchaîne trois étapes et affiche le résultat dans l'onglet
+**Joignables** (bouton pour copier la liste `ip:port`) :
+
+1. announce `started` à **tous** les trackers du torrent en parallèle avec `numwant=200`, puis fusion des peers
+   sans doublons (la colonne *Trackers* indique combien de trackers ont donné chaque peer) ;
+2. sondage de tous ces peers (32 connexions en parallèle) ; seuls les joignables sont gardés ;
+3. announce `event=stopped`, `left=0` aux trackers qui ont répondu, pour quitter proprement les swarms
+   (`stopped` plutôt que `completed`, qui fausserait le compteur de téléchargements et t'afficherait comme seeder).
+
+Pendant cette recherche, un tracker qui ne répond pas est abandonné vite (UDP : 5 s puis 10 s ; HTTP : 15 s).
+**Arrêter la recherche** saute le reste du sondage mais envoie quand même le `stopped`.
+
 Les announces tournent en arrière-plan : on peut en lancer plusieurs en même temps vers des trackers différents
 (un seul à la fois par tracker), et **Annuler** agit sur le tracker sélectionné.
 
