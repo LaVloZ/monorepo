@@ -17,10 +17,18 @@ voit :
   inexistants pour le transport grisés) ;
 - **Requête** : l'URL HTTP finale (bouton copier) ou, en UDP, l'adresse résolue et les paquets connect/announce
   envoyés, champ par champ + hex dump ;
-- **Peers** : IP, port, peer_id (si fourni) ;
+- **Peers** : IP, port, peer_id (si fourni), avec une recherche (IP, port, peer_id, client…) ; le bouton
+  **Sonder les peers** se connecte à chacun (TCP, handshake BitTorrent, 16 en parallèle, 5 s max par peer) et
+  affiche s'il est joignable, son pourcentage de complétion (`bitfield` / `have` / `have_all` / `have_none`),
+  les seeders en vert, son client (handshake étendu BEP 10 ou peer_id) et ses extensions. Rien n'est téléchargé.
+  Les résultats restent attachés à l'announce dans l'historique. Le pourcentage exact demande le `.torrent`
+  chargé (nombre de pièces) ;
 - **Raw** : hex dump de la réponse brute, annoté en UDP, avec le bencode décodé en HTTP ;
 - **Historique** : les 100 derniers announces de chaque tracker (en mémoire), cliquables ;
 - **Journal** horodaté : announces, retransmissions, réutilisation/renouvellement du `connection_id`, erreurs.
+
+Les announces tournent en arrière-plan : on peut en lancer plusieurs en même temps vers des trackers différents
+(un seul à la fois par tracker), et **Annuler** agit sur le tracker sélectionné.
 
 On peut aussi ajouter une URL de tracker à la main et saisir un info_hash sans fichier `.torrent`.
 Un double-clic sur une ligne (infos, trackers, réponse, peers) copie la valeur.
@@ -54,10 +62,12 @@ Tests :
 
 - `test_unit` : bencode (encode/decode, cas invalides), info_hash (y compris dictionnaire non canonique), parsing
   `.torrent`, peers compact IPv4/IPv6 et dictionnaire, sérialisation exacte des paquets UDP connect (16 octets) et
-  announce (98 octets), parsing des réponses UDP announce/erreur, transaction_id invalide, URL HTTP, historique ;
+  announce (98 octets), parsing des réponses UDP announce/erreur, transaction_id invalide, URL HTTP, historique,
+  messages peer wire (handshake, bitfield, have, have_all, handshake étendu, client deviné) ;
 - `test_integration` : faux tracker HTTP et faux tracker UDP sur `127.0.0.1` (port éphémère) : succès, tracker id,
   failure reason, réponse non bencodée, connexion refusée, paquet avec mauvais transaction_id, réutilisation et
-  expiration du connection_id, retransmission, timeout, annulation, port UDP fermé, DNS.
+  expiration du connection_id, retransmission, timeout, annulation, port UDP fermé, DNS ; faux peers TCP pour le
+  sondage (seeder avec bitfield et handshake étendu, `have_all`, mauvais info_hash, peer muet, port fermé).
 
 ## Utilisation
 
@@ -92,7 +102,8 @@ build\release\announce-debugger.exe C:\chemin\vers\fichier.torrent
 | `src/tracker.c/h` | interface commune : `tr_announce()`, parsing d'URL, résultats, mise en forme Requête/Raw |
 | `src/http_tracker.c/h` | construction de l'URL, requête WinHTTP (asynchrone, annulable), décodage de la réponse |
 | `src/udp_tracker.c/h` | paquets BEP 15, envoi/réception Winsock, retransmissions, annotations |
-| `src/history.c/h` | historique des announces par tracker (100 max, en mémoire) |
+| `src/peer_probe.c/h` | sondage d'un peer : handshake BitTorrent, bitfield/have, BEP 6 et BEP 10 |
+| `src/history.c/h` | historique des announces par tracker (100 max, en mémoire), avec les résultats de sondage |
 | `src/ui.c`, `src/main.c` | interface Win32 ; le réseau tourne dans un thread séparé |
 
 ## Notes

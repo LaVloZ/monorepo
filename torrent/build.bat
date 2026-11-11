@@ -52,7 +52,7 @@ if /i "%MODE%"=="release" (
 for %%d in (core app tests) do if not exist "%OUT%\%%d" mkdir "%OUT%\%%d"
 
 echo === Compilation (%MODE%) ===
-cl %FLAGS% /c src\util.c src\bencode.c src\torrent.c src\tracker.c src\http_tracker.c src\udp_tracker.c src\history.c /Fo%OUT%\core\ /Fd%OUT%\core\ || goto fail
+cl %FLAGS% /c src\util.c src\bencode.c src\torrent.c src\tracker.c src\http_tracker.c src\udp_tracker.c src\peer_probe.c src\history.c /Fo%OUT%\core\ /Fd%OUT%\core\ || goto fail
 lib /nologo /out:%OUT%\trackercore.lib %OUT%\core\*.obj || goto fail
 cl %FLAGS% /c src\ui.c src\main.c /Fo%OUT%\app\ /Fd%OUT%\app\ || goto fail
 cl %FLAGS% %OUT%\app\ui.obj %OUT%\app\main.obj %OUT%\trackercore.lib /Fe%OUT%\announce-debugger.exe /link /SUBSYSTEM:WINDOWS || goto fail

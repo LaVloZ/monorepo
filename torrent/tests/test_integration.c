@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "bencode.h"
+#include "peer_probe.h"
 #include "tracker.h"
 #include "udp_tracker.h"
 #include "util.h"
@@ -522,12 +523,156 @@ static void test_udp(void)
     bbuf_free(&log);
 }
 
+/* ---- fake BitTorrent peer (one TCP connection) ---- */
+
+enum { PEER_SEEDER, PEER_HAVE_ALL, PEER_WRONG_HASH, PEER_SILENT };
+
+typedef struct {
+    SOCKET lfd;
+    uint16_t port;
+    HANDLE th;
+    int mode;
+    uint8_t info_hash[20];
+    int got_handshake;
+} peer_srv;
+
+static int recv_n(SOCKET s, uint8_t *b, int n)
+{
+    int got = 0;
+    while (got < n) {
+        int r = recv(s, (char *)b + got, n - got, 0);
+        if (r <= 0)
+            return -1;
+        got += r;
+    }
+    return 0;
+}
+
+static DWORD WINAPI peer_srv_main(LPVOID arg)
+{
+    peer_srv *s = arg;
+    SOCKET c = accept(s->lfd, NULL, NULL);
+    if (c == INVALID_SOCKET)
+        return 0;
+    uint8_t hs[68];
+    if (recv_n(c, hs, 68) == 0) {
+        s->got_handshake = hs[0] == 19 && memcmp(hs + 1, "BitTorrent protocol", 19) == 0;
+        if (s->mode != PEER_SILENT) {
+            uint8_t ih[20];
+            memcpy(ih, s->info_hash, 20);
+            if (s->mode == PEER_WRONG_HASH)
+                ih[0] ^= 0xFF;
+            uint8_t reply[68];
+            probe_build_handshake(reply, ih, (const uint8_t *)"-TR4050-fakepeer0001");
+            send(c, (const char *)reply, 68, 0);
+            if (s->mode == PEER_SEEDER) {
+                static const char ext[] = "d1:v12:FakePeer 1.0e";
+                uint8_t msg[64];
+                be_put32(msg, (uint32_t)(sizeof ext - 1 + 2));
+                msg[4] = 20;
+                msg[5] = 0;
+                memcpy(msg + 6, ext, sizeof ext - 1);
+                send(c, (const char *)msg, (int)(sizeof ext - 1 + 6), 0);
+                const uint8_t bitfield[] = { 0, 0, 0, 3, 5, 0xFF, 0xC0 }; /* 10 pieces, all set */
+                send(c, (const char *)bitfield, sizeof bitfield, 0);
+            } else if (s->mode == PEER_HAVE_ALL) {
+                const uint8_t have_all[] = { 0, 0, 0, 1, 0x0E };
+                send(c, (const char *)have_all, sizeof have_all, 0);
+            }
+        }
+        /* Wait for the client to hang up. */
+        uint8_t drain[256];
+        while (recv(c, (char *)drain, sizeof drain, 0) > 0) {
+        }
+    }
+    closesocket(c);
+    return 0;
+}
+
+static int peer_srv_start(peer_srv *s, int mode, const uint8_t ih[20])
+{
+    memset(s, 0, sizeof *s);
+    s->mode = mode;
+    memcpy(s->info_hash, ih, 20);
+    s->lfd = loopback_socket(SOCK_STREAM, &s->port);
+    if (s->lfd == INVALID_SOCKET || listen(s->lfd, 4) == SOCKET_ERROR)
+        return -1;
+    s->th = CreateThread(NULL, 0, peer_srv_main, s, 0, NULL);
+    return s->th ? 0 : -1;
+}
+
+static void peer_srv_stop(peer_srv *s)
+{
+    closesocket(s->lfd);
+    WaitForSingleObject(s->th, INFINITE);
+    CloseHandle(s->th);
+}
+
+static void test_probe(void)
+{
+    uint8_t ih[20], pid[20];
+    for (int i = 0; i < 20; i++)
+        ih[i] = (uint8_t)(0x40 + i);
+    memcpy(pid, "-DB0001-PROBEPROBE01", 20);
+    probe_result r;
+    peer_srv s;
+
+    /* Seeder with extension handshake and full bitfield. */
+    CHECK(peer_srv_start(&s, PEER_SEEDER, ih) == 0);
+    probe_peer("127.0.0.1", s.port, ih, pid, 10, 3000, NULL, &r);
+    peer_srv_stop(&s);
+    CHECK(s.got_handshake);
+    CHECK(r.status == PROBE_OK);
+    if (r.status != PROBE_OK)
+        fprintf(stderr, "  sondage : %s\n", r.error);
+    CHECK(r.ext_proto && r.fast_ext);
+    CHECK(r.pieces_have == 10 && probe_is_seeder(&r, 10));
+    CHECK_STR(r.client, "FakePeer 1.0");
+    CHECK(r.has_peer_id && memcmp(r.peer_id, "-TR4050-", 8) == 0);
+
+    /* have_all (fast extension). */
+    CHECK(peer_srv_start(&s, PEER_HAVE_ALL, ih) == 0);
+    probe_peer("127.0.0.1", s.port, ih, pid, 0, 3000, NULL, &r);
+    peer_srv_stop(&s);
+    CHECK(r.status == PROBE_OK && r.have_all && probe_is_seeder(&r, 0));
+
+    /* Peer answering with another info_hash. */
+    CHECK(peer_srv_start(&s, PEER_WRONG_HASH, ih) == 0);
+    probe_peer("127.0.0.1", s.port, ih, pid, 10, 3000, NULL, &r);
+    peer_srv_stop(&s);
+    CHECK(r.status == PROBE_WRONG_HASH);
+
+    /* Peer that accepts the connection but never answers. */
+    CHECK(peer_srv_start(&s, PEER_SILENT, ih) == 0);
+    int64_t t0 = mono_ms();
+    probe_peer("127.0.0.1", s.port, ih, pid, 10, 300, NULL, &r);
+    int64_t took = mono_ms() - t0;
+    peer_srv_stop(&s);
+    CHECK(r.status == PROBE_TIMEOUT);
+    CHECK(took >= 250 && took < 2000);
+
+    /* Nothing listening. */
+    uint16_t closed;
+    SOCKET tmp = loopback_socket(SOCK_STREAM, &closed);
+    closesocket(tmp);
+    probe_peer("127.0.0.1", closed, ih, pid, 10, 3000, NULL, &r);
+    CHECK(r.status == PROBE_CONNECT_FAIL || r.status == PROBE_TIMEOUT);
+
+    /* Cancel flag already set. */
+    volatile long cancel = 1;
+    CHECK(peer_srv_start(&s, PEER_SILENT, ih) == 0);
+    probe_peer("127.0.0.1", s.port, ih, pid, 10, 3000, &cancel, &r);
+    peer_srv_stop(&s);
+    CHECK(r.status == PROBE_CANCELLED);
+}
+
 int main(void)
 {
     SetConsoleOutputCP(CP_UTF8);
     tr_global_init();
     test_http();
     test_udp();
+    test_probe();
     tr_global_cleanup();
 #ifdef _DEBUG
     if (_CrtDumpMemoryLeaks()) {

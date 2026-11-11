@@ -12,6 +12,7 @@
 #include "bencode.h"
 #include "history.h"
 #include "http_tracker.h"
+#include "peer_probe.h"
 #include "torrent.h"
 #include "tracker.h"
 #include "udp_tracker.h"
@@ -555,6 +556,86 @@ static void test_history(void)
     CHECK(h.count == 0 && history_get(&h, 0) == NULL);
 }
 
+static void test_probe_messages(void)
+{
+    uint8_t ih[20], pid[20], hs[PROBE_HANDSHAKE_LEN];
+    for (int i = 0; i < 20; i++)
+        ih[i] = (uint8_t)i;
+    memcpy(pid, "-qB4650-abcdefghijkl", 20);
+    probe_build_handshake(hs, ih, pid);
+    CHECK(hs[0] == 19 && memcmp(hs + 1, "BitTorrent protocol", 19) == 0);
+    CHECK(hs[25] == 0x10 && hs[27] == 0x04); /* BEP 10 + BEP 6 bits */
+    CHECK(memcmp(hs + 28, ih, 20) == 0 && memcmp(hs + 48, pid, 20) == 0);
+
+    probe_result r;
+    memset(&r, 0, sizeof r);
+    CHECK(probe_parse_handshake(hs, ih, &r) == 0);
+    CHECK(r.ext_proto && r.fast_ext && !r.dht && r.has_peer_id);
+    uint8_t other[20] = { 9 };
+    CHECK(probe_parse_handshake(hs, other, &r) == -2);
+    hs[0] = 18;
+    CHECK(probe_parse_handshake(hs, ih, &r) == -1);
+
+    /* 10 pieces: bitfield with 9 bits set, then a have for the last one. */
+    memset(&r, 0, sizeof r);
+    r.status = PROBE_OK;
+    r.upload_only = -1;
+    probe_ctx c;
+    probe_ctx_init(&c, &r, 10);
+    const uint8_t bitfield[] = { 5, 0xFF, 0x80 };
+    probe_on_message(&c, bitfield, sizeof bitfield);
+    CHECK(r.got_pieces && r.pieces_have == 9 && r.bitfield_bits == 16);
+    CHECK(!probe_is_seeder(&r, 10));
+    char text[64];
+    probe_completion_text(&r, 10, text, sizeof text);
+    CHECK_STR(text, "90.0 % (9/10)");
+    const uint8_t have[] = { 4, 0, 0, 0, 9 };
+    probe_on_message(&c, have, sizeof have);
+    CHECK(r.pieces_have == 10 && probe_is_seeder(&r, 10));
+    probe_completion_text(&r, 10, text, sizeof text);
+    CHECK_STR(text, "100 % (seeder)");
+    const uint8_t have_out[] = { 4, 0, 0, 0, 200 }; /* index beyond the torrent: ignored */
+    probe_on_message(&c, have_out, sizeof have_out);
+    CHECK(r.pieces_have == 10);
+
+    /* Extension handshake. */
+    const char ext[] = "d1:md11:ut_metadatai1ee11:upload_onlyi1e1:v15:qBittorrent 5.06:yourip4:\x01\x02\x03\x04"
+                       "e";
+    uint8_t msg[128];
+    msg[0] = 20;
+    msg[1] = 0;
+    memcpy(msg + 2, ext, sizeof ext - 1);
+    probe_on_message(&c, msg, sizeof ext - 1 + 2);
+    CHECK(c.got_ext_handshake && r.upload_only == 1);
+    CHECK_STR(r.client, "qBittorrent 5.0");
+    CHECK_STR(r.yourip, "1.2.3.4");
+    probe_ctx_free(&c);
+
+    /* have_all / have_none, and unknown piece count. */
+    memset(&r, 0, sizeof r);
+    r.status = PROBE_OK;
+    probe_ctx_init(&c, &r, 0);
+    const uint8_t have_all[] = { 0x0E };
+    probe_on_message(&c, have_all, 1);
+    CHECK(r.have_all && probe_is_seeder(&r, 0));
+    probe_ctx_free(&c);
+    memset(&r, 0, sizeof r);
+    r.status = PROBE_OK;
+    probe_ctx_init(&c, &r, 0);
+    const uint8_t bf2[] = { 5, 0xF0 };
+    probe_on_message(&c, bf2, sizeof bf2);
+    probe_completion_text(&r, 0, text, sizeof text);
+    CHECK_STR(text, "4 pièce(s), total inconnu");
+    probe_ctx_free(&c);
+
+    /* Client guessed from an Azureus-style peer_id when there is no "v". */
+    memset(&r, 0, sizeof r);
+    r.has_peer_id = 1;
+    memcpy(r.peer_id, "-TR4050-zzzzzzzzzzzz", 20);
+    probe_client_text(&r, text, sizeof text);
+    CHECK_STR(text, "Transmission (4050)");
+}
+
 static void test_misc(void)
 {
     uint8_t id[20];
@@ -589,6 +670,7 @@ int main(void)
     test_http_url();
     test_parse_url();
     test_history();
+    test_probe_messages();
     test_misc();
 #ifdef _DEBUG
     if (_CrtDumpMemoryLeaks()) {
