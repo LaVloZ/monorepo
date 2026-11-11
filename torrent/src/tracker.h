@@ -113,6 +113,14 @@ typedef struct {
     char *tracker_id;
     char *warning;
     char *failure;
+    /* Common HTTP extensions */
+    int has_downloaded;
+    int64_t downloaded;     /* "downloaded": completed downloads */
+    char external_ip[64];   /* BEP 24 "external ip", decoded ("" if absent) */
+    char *retry_in;         /* BEP 31 "retry in": "30 minute(s)" or "never" */
+    int has_crypto;         /* "crypto_flags" present */
+    size_t crypto_total, crypto_on;
+    char *other_keys;       /* non-standard keys with a short preview, one per line */
     tr_peer *peers;
     size_t npeers;
     size_t peers_trailing; /* bytes left over in compact peer strings */

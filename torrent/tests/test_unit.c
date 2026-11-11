@@ -326,6 +326,38 @@ static void test_http_response(void)
     tr_result_free(&r);
     bbuf_free(&b);
 
+    /* Common extensions and non-standard keys. */
+    d = ben_new_dict();
+    ben_dict_put(d, "interval", ben_new_int(60));
+    ben_dict_put(d, "downloaded", ben_new_int(1234));
+    const uint8_t ext_ip[4] = { 203, 0, 113, 7 };
+    ben_dict_put(d, "external ip", ben_new_str(ext_ip, 4));
+    ben_dict_put(d, "retry in", ben_new_int(30));
+    const uint8_t crypto[3] = { 1, 0, 1 };
+    ben_dict_put(d, "crypto_flags", ben_new_str(crypto, 3));
+    ben_dict_put(d, "x-msg", ben_new_strz("hi"));
+    ben_dict_put(d, "flags", ben_new_list());
+    bbuf_init(&b);
+    ben_encode(d, &b);
+    ben_free(d);
+    tr_result_init(&r);
+    CHECK(http_parse_response(b.data, b.len, &r) == 0);
+    CHECK(r.has_downloaded && r.downloaded == 1234);
+    CHECK(strcmp(r.external_ip, "203.0.113.7") == 0);
+    CHECK_STR(r.retry_in, "30 minute(s)");
+    CHECK(r.has_crypto && r.crypto_total == 3 && r.crypto_on == 2);
+    CHECK(r.other_keys && strstr(r.other_keys, "x-msg = \"hi\"") && strstr(r.other_keys, "flags = [liste"));
+    CHECK(r.other_keys && !strstr(r.other_keys, "interval"));
+    tr_result_free(&r);
+    bbuf_free(&b);
+
+    const char *never = "d8:retry in5:nevere";
+    tr_result_init(&r);
+    CHECK(http_parse_response((const uint8_t *)never, strlen(never), &r) == 0);
+    CHECK_STR(r.retry_in, "\"never\"");
+    CHECK(r.other_keys == NULL);
+    tr_result_free(&r);
+
     const char *fail = "d14:failure reason12:unregisterede";
     tr_result_init(&r);
     CHECK(http_parse_response((const uint8_t *)fail, strlen(fail), &r) == 0);

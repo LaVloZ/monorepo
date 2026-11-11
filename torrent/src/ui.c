@@ -509,20 +509,39 @@ static void clear_trackers(void)
 
 enum {
     F_TRANSPORT, F_STATUS, F_HTTP_CODE, F_UDP_ACTION, F_TIME, F_INTERVAL, F_MIN_INTERVAL, F_COMPLETE, F_INCOMPLETE,
-    F_TRACKER_ID, F_WARNING, F_ERROR, F_PEERS, F_CONN_ID, F_RETRANS, F_COUNT
+    F_TRACKER_ID, F_WARNING, F_ERROR, F_DOWNLOADED, F_EXTERNAL_IP, F_RETRY_IN, F_CRYPTO, F_OTHER, F_PEERS, F_CONN_ID,
+    F_RETRANS, F_COUNT
 };
 
 static const char *const field_names[F_COUNT] = {
-    "Transport",       "Statut",       "Code HTTP",          "Action UDP",            "Temps de réponse",
-    "interval",        "min interval", "complete (seeders)", "incomplete (leechers)", "tracker id",
-    "warning message", "failure reason / erreur", "Peers reçus", "connection_id",       "Retransmissions",
+    "Transport",
+    "Statut",
+    "Code HTTP",
+    "Action UDP",
+    "Temps de réponse",
+    "interval",
+    "min interval",
+    "complete (seeders)",
+    "incomplete (leechers)",
+    "tracker id",
+    "warning message",
+    "failure reason / erreur",
+    "downloaded (terminés)",
+    "external ip (ton IP vue)",
+    "retry in",
+    "crypto_flags",
+    "Autres champs",
+    "Peers reçus",
+    "connection_id",
+    "Retransmissions",
 };
 
 static int field_applies(int f, tr_transport t)
 {
     if (t == TR_HTTP)
         return f != F_UDP_ACTION && f != F_CONN_ID && f != F_RETRANS;
-    return f != F_HTTP_CODE && f != F_MIN_INTERVAL && f != F_TRACKER_ID && f != F_WARNING;
+    return f != F_HTTP_CODE && f != F_MIN_INTERVAL && f != F_TRACKER_ID && f != F_WARNING && f != F_DOWNLOADED &&
+           f != F_EXTERNAL_IP && f != F_RETRY_IN && f != F_CRYPTO && f != F_OTHER;
 }
 
 /* Case-insensitive (ASCII) substring test. */
@@ -665,6 +684,19 @@ static void show_result(const tr_result *r)
         snprintf(val[F_ERROR], sizeof val[0], "%.590s", r->failure ? r->failure : r->error);
         color[F_ERROR] = C_ERROR;
     }
+    if (r->has_downloaded)
+        snprintf(val[F_DOWNLOADED], sizeof val[0], "%" PRId64, r->downloaded);
+    if (r->external_ip[0])
+        snprintf(val[F_EXTERNAL_IP], sizeof val[0], "%s", r->external_ip);
+    if (r->retry_in) {
+        snprintf(val[F_RETRY_IN], sizeof val[0], "%.590s", r->retry_in);
+        color[F_RETRY_IN] = C_WARN;
+    }
+    if (r->has_crypto)
+        snprintf(val[F_CRYPTO], sizeof val[0], "%zu peer(s) sur %zu acceptent le chiffrement", r->crypto_on,
+                 r->crypto_total);
+    if (r->other_keys)
+        snprintf(val[F_OTHER], sizeof val[0], "voir les lignes « autre : … » ci-dessous");
     snprintf(val[F_PEERS], sizeof val[0], "%zu", r->npeers);
     if (r->connection_id)
         snprintf(val[F_CONN_ID], sizeof val[0], "0x%016" PRIx64 " (%s)", r->connection_id,
@@ -685,6 +717,23 @@ static void show_result(const tr_result *r)
     for (int f = 0; f < F_COUNT; f++) {
         const char *cols[] = { field_names[f], val[f] };
         lv_add(g.resp_lv, color[f], 2, cols);
+    }
+    /* One row per non-standard key ("key = preview" lines). */
+    for (const char *line = r->other_keys; line && *line;) {
+        const char *end = strchr(line, '\n');
+        size_t n = end ? (size_t)(end - line) : strlen(line);
+        const char *eq = strstr(line, " = ");
+        char key[160], value[600];
+        if (eq && (size_t)(eq - line) < n) {
+            snprintf(key, sizeof key, "autre : %.*s", (int)(eq - line), line);
+            snprintf(value, sizeof value, "%.*s", (int)(n - (size_t)(eq - line) - 3), eq + 3);
+        } else {
+            snprintf(key, sizeof key, "autre");
+            snprintf(value, sizeof value, "%.*s", (int)n, line);
+        }
+        const char *cols[] = { key, value };
+        lv_add(g.resp_lv, C_NORMAL, 2, cols);
+        line = end ? end + 1 : line + n;
     }
     SendMessageW(g.resp_lv, WM_SETREDRAW, TRUE, 0);
 

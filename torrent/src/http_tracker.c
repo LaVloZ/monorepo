@@ -1,3 +1,5 @@
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <winhttp.h>
 
@@ -94,6 +96,89 @@ static char *dup_ben_str(const ben_node *dict, const char *key)
     return s ? xstrndup(s, n) : NULL;
 }
 
+/* Short one-line preview of a bencoded value. */
+static void preview(const ben_node *n, bbuf *out)
+{
+    switch (n->type) {
+    case BEN_INT:
+        bbuf_printf(out, "%" PRId64, n->i);
+        break;
+    case BEN_STR:
+        if (is_printable_text(n->s, n->slen) && !memchr(n->s, '\n', n->slen))
+            bbuf_printf(out, "\"%.*s%s\"", (int)(n->slen > 80 ? 80 : n->slen), (const char *)n->s,
+                        n->slen > 80 ? "…" : "");
+        else
+            bbuf_printf(out, "<%zu octets binaires>", n->slen);
+        break;
+    case BEN_LIST:
+        bbuf_printf(out, "[liste de %zu élément(s)]", n->count);
+        break;
+    case BEN_DICT:
+        bbuf_printf(out, "{dictionnaire de %zu clé(s)}", n->nkv);
+        break;
+    }
+}
+
+static void parse_extensions(const ben_node *root, tr_result *r)
+{
+    r->has_downloaded = ben_get_int(root, "downloaded", &r->downloaded);
+
+    const ben_node *ext = ben_dict_get(root, "external ip");
+    if (ext && ext->type == BEN_STR) {
+        if (ext->slen == 4 || ext->slen == 16)
+            inet_ntop(ext->slen == 4 ? AF_INET : AF_INET6, ext->s, r->external_ip, sizeof r->external_ip);
+        else if (is_printable_text(ext->s, ext->slen))
+            snprintf(r->external_ip, sizeof r->external_ip, "%.*s", (int)ext->slen, (const char *)ext->s);
+        else
+            snprintf(r->external_ip, sizeof r->external_ip, "<%zu octets, format inconnu>", ext->slen);
+    }
+
+    const ben_node *ri = ben_dict_get(root, "retry in");
+    if (ri) {
+        bbuf b;
+        bbuf_init(&b);
+        if (ri->type == BEN_INT)
+            bbuf_printf(&b, "%" PRId64 " minute(s)", ri->i);
+        else
+            preview(ri, &b);
+        r->retry_in = bbuf_steal(&b);
+    }
+
+    const ben_node *cf = ben_dict_get(root, "crypto_flags");
+    if (cf && cf->type == BEN_STR) {
+        r->has_crypto = 1;
+        r->crypto_total = cf->slen;
+        for (size_t i = 0; i < cf->slen; i++)
+            if (cf->s[i])
+                r->crypto_on++;
+    }
+
+    static const char *const known[] = {
+        "failure reason", "warning message", "interval", "min interval", "tracker id", "complete", "incomplete",
+        "peers", "peers6", "downloaded", "external ip", "retry in", "crypto_flags",
+    };
+    bbuf b;
+    bbuf_init(&b);
+    for (size_t i = 0; i < root->nkv; i++) {
+        const ben_kv *kv = &root->kv[i];
+        int is_known = 0;
+        for (size_t k = 0; k < sizeof known / sizeof known[0] && !is_known; k++)
+            is_known = kv->key_len == strlen(known[k]) && memcmp(kv->key, known[k], kv->key_len) == 0;
+        if (is_known)
+            continue;
+        if (b.len)
+            bbuf_putc(&b, '\n');
+        if (is_printable_text((const uint8_t *)kv->key, kv->key_len))
+            bbuf_append(&b, kv->key, kv->key_len);
+        else
+            bbuf_printf(&b, "<clé binaire de %zu octets>", kv->key_len);
+        bbuf_append(&b, " = ", 3);
+        preview(kv->val, &b);
+    }
+    r->other_keys = b.len ? bbuf_steal(&b) : NULL;
+    bbuf_free(&b);
+}
+
 int http_parse_response(const uint8_t *body, size_t len, tr_result *r)
 {
     char err[200];
@@ -123,6 +208,7 @@ int http_parse_response(const uint8_t *body, size_t len, tr_result *r)
     const ben_node *peers6 = ben_dict_get(root, "peers6");
     if (peers6 && peers6->type == BEN_STR)
         r->peers_trailing += tr_parse_compact_peers(peers6->s, peers6->slen, 1, r);
+    parse_extensions(root, r);
     ben_free(root);
     return 0;
 }
@@ -443,6 +529,10 @@ void http_announce(const char *url, const tr_params *p, tr_state *st, const tr_c
 
     if (res->warning)
         tr_log(ctx, TR_LOG_WARN, "HTTP : warning message : %s", res->warning);
+    if (res->retry_in)
+        tr_log(ctx, TR_LOG_WARN, "HTTP : retry in : %s", res->retry_in);
+    if (res->other_keys)
+        tr_log(ctx, TR_LOG_INFO, "HTTP : champs non standard présents (voir l'onglet Réponse)");
     if (res->peers_trailing)
         tr_log(ctx, TR_LOG_WARN, "HTTP : %zu octet(s) en trop dans les peers compact", res->peers_trailing);
     if (res->tracker_id) {

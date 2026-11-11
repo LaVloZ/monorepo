@@ -210,6 +210,8 @@ void tr_result_free(tr_result *r)
     free(r->tracker_id);
     free(r->warning);
     free(r->failure);
+    free(r->retry_in);
+    free(r->other_keys);
     free(r->peers);
     tr_result_init(r);
 }
