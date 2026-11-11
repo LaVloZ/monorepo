@@ -10,6 +10,7 @@
 #include <shellapi.h>
 
 #include <ctype.h>
+#include <stddef.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -39,9 +40,18 @@
 #define WM_APP_PROBE (WM_APP + 3)     /* one peer probed */
 #define WM_APP_PROBE_END (WM_APP + 4) /* one probe thread finished */
 
-#define PROBE_THREADS 32
+#define MAX_PROBE_THREADS 128
 #define DISCOVERY_NUMWANT 200 /* most trackers cap the answer around 200 peers */
-#define PROBE_TIMEOUT_MS 5000
+
+/* Delays and parallelism, editable in the "Réglages" tab. */
+typedef struct {
+    int udp_base_s, udp_retries, http_s;                /* manual announces (BEP 15: 15 s, 8) */
+    int disc_udp_base_s, disc_udp_retries, disc_http_s; /* "Trouver les peers joignables" */
+    int probe_timeout_s, probe_threads;                 /* peer probing */
+} Settings;
+
+enum { SET_COUNT = 8 };
+static const Settings default_settings = { 15, 8, 30, 5, 1, 15, 3, 64 };
 
 enum {
     ID_OPEN = 100,
@@ -81,6 +91,9 @@ enum {
     ID_DISC,
     ID_DISC_COPY,
     ID_DISC_LV,
+    ID_SET_FIRST,
+    ID_SET_LAST = ID_SET_FIRST + SET_COUNT - 1,
+    ID_SET_RESET,
     ID_LABEL, /* all static labels */
 };
 
@@ -129,9 +142,10 @@ struct Job {
 
 /* "Trouver les peers joignables": announce everywhere, probe every peer, leave the swarms. */
 typedef struct {
-    int phase; /* 1 announces, 2 probing, 3 stopped announces, 4 done */
+    int phase; /* 1 announces (peers probed as they arrive), 2 last probes, 3 stopped announces, 4 done */
     int pending; /* announces left in the current step */
     int stop_requested;
+    int announces_done, probe_done; /* step 3 starts when both are true */
     tr_params params;
     size_t num_pieces;
     tr_peer *peers; /* unique ip:port over all trackers */
@@ -144,18 +158,23 @@ typedef struct {
     size_t asked;
 } Discovery;
 
-/* Peer probing of one history entry, spread over PROBE_THREADS threads. */
+/* Peers probed by a pool of threads. The queue can grow while it runs (discovery adds
+ * peers as trackers answer) until it is closed. */
 typedef struct {
     TrackerEntry *entry;
     uint32_t hist_id;
+    CRITICAL_SECTION lock; /* guards peers, npeers, next, closed */
+    CONDITION_VARIABLE cv;
     tr_peer *peers;
     size_t npeers;
+    size_t next;
+    int closed;
     uint8_t info_hash[20];
     uint8_t peer_id[20];
     size_t num_pieces;
-    volatile long next;
+    int timeout_ms;
     volatile long cancel;
-    HANDLE threads[PROBE_THREADS];
+    HANDLE threads[MAX_PROBE_THREADS];
     int nthreads, ended;
     size_t done;
     int for_disc; /* results go to the discovery instead of a history entry */
@@ -189,6 +208,7 @@ static struct {
     HWND lbl_history, clear_hist, history_lv, tab, resp_lv, copy_req, req_edit, peers_label, peers_search, probe_btn,
         peers_lv, raw_edit;
     HWND disc_btn, disc_label, disc_copy, disc_lv;
+    HWND set_lbl[SET_COUNT], set_edit[SET_COUNT], set_reset, set_note;
     HWND lbl_log, log;
     int status_err;
 
@@ -210,6 +230,7 @@ static struct {
 
     tr_ctx ctx;   /* template copied into each Job */
     int running;  /* announces in flight */
+    Settings cfg; /* last valid values of the Réglages tab */
     ProbeSession *probe;
     Discovery *disc; /* last discovery (kept after it ends to show its result) */
 } g;
@@ -520,6 +541,96 @@ static void update_buttons(void)
     EnableWindow(g.probe_btn, !disc && (g.probe || g.nshown > 0));
     set_text(g.disc_btn, disc ? "Arrêter la recherche" : "Trouver les peers joignables");
     EnableWindow(g.disc_btn, disc ? g.disc->phase != 3 : (!g.running && !g.probe && g.ntrackers > 0));
+}
+
+/* ---- Réglages tab ---- */
+
+static void show_tab(int i);
+static int parse_u64(const char *s, uint64_t max, uint64_t *out);
+
+static const struct {
+    const char *label;
+    int min, max;
+    size_t offset;
+} settings_fields[SET_COUNT] = {
+    { "Announce manuel, UDP : premier délai (s)", 1, 60, offsetof(Settings, udp_base_s) },
+    { "Announce manuel, UDP : retransmissions max (0-8)", 0, 8, offsetof(Settings, udp_retries) },
+    { "Announce manuel, HTTP : timeout (s)", 1, 120, offsetof(Settings, http_s) },
+    { "Recherche, UDP : premier délai (s)", 1, 60, offsetof(Settings, disc_udp_base_s) },
+    { "Recherche, UDP : retransmissions max (0-8)", 0, 8, offsetof(Settings, disc_udp_retries) },
+    { "Recherche, HTTP : timeout (s)", 1, 120, offsetof(Settings, disc_http_s) },
+    { "Sondage : timeout par peer (s)", 1, 30, offsetof(Settings, probe_timeout_s) },
+    { "Sondage : connexions en parallèle (1-128)", 1, MAX_PROBE_THREADS, offsetof(Settings, probe_threads) },
+};
+
+static int *setting_ptr(Settings *s, int i)
+{
+    return (int *)((char *)s + settings_fields[i].offset);
+}
+
+static void settings_to_edits(const Settings *s)
+{
+    for (int i = 0; i < SET_COUNT; i++) {
+        char buf[16];
+        snprintf(buf, sizeof buf, "%d", *setting_ptr((Settings *)s, i));
+        set_text(g.set_edit[i], buf);
+    }
+}
+
+static void fmt_duration(long s, char *out, size_t n)
+{
+    if (s < 60)
+        snprintf(out, n, "%ld s", s);
+    else if (s < 3600)
+        snprintf(out, n, "%ld min %ld s", s / 60, s % 60);
+    else
+        snprintf(out, n, "%ld h %ld min %ld s", s / 3600, s % 3600 / 60, s % 60);
+}
+
+/* Max time a UDP announce waits before giving up: base x (2^(n+1) - 1), for connect and announce. */
+static void update_settings_note(void)
+{
+    char buf[600];
+    Settings s = g.cfg;
+    for (int i = 0; i < SET_COUNT; i++) {
+        char *t = get_trimmed(g.set_edit[i]);
+        uint64_t v;
+        if (parse_u64(t, 1000, &v))
+            *setting_ptr(&s, i) = (int)v;
+        free(t);
+    }
+    char manual[48], search[48];
+    fmt_duration((long)s.udp_base_s * ((1L << (s.udp_retries + 1)) - 1), manual, sizeof manual);
+    fmt_duration((long)s.disc_udp_base_s * ((1L << (s.disc_udp_retries + 1)) - 1), search, sizeof search);
+    snprintf(buf, sizeof buf,
+             "En UDP le délai double à chaque retransmission (BEP 15 : 15 s et 8 retransmissions). Un tracker UDP muet "
+             "est abandonné après %s en announce manuel et %s pendant la recherche (par étape connect / "
+             "announce). Sondage : un peer injoignable coûte %d s, %d à la fois.",
+             manual, search, s.probe_timeout_s, s.probe_threads);
+    set_text(g.set_note, buf);
+}
+
+/* Reads and checks the Réglages tab into g.cfg. 0 (and the tab shown) if a value is invalid. */
+static int load_settings(void)
+{
+    Settings s;
+    for (int i = 0; i < SET_COUNT; i++) {
+        char *t = get_trimmed(g.set_edit[i]);
+        uint64_t v;
+        int ok = parse_u64(t, (uint64_t)settings_fields[i].max, &v) && (int64_t)v >= settings_fields[i].min;
+        free(t);
+        if (!ok) {
+            set_status(1, "Réglages : « %s » doit être entre %d et %d.", settings_fields[i].label,
+                       settings_fields[i].min, settings_fields[i].max);
+            TabCtrl_SetCurSel(g.tab, 5);
+            show_tab(5);
+            SetFocus(g.set_edit[i]);
+            return 0;
+        }
+        *setting_ptr(&s, i) = (int)v;
+    }
+    g.cfg = s;
+    return 1;
 }
 
 static void tracker_row(TrackerEntry *e, int pos)
@@ -1275,13 +1386,11 @@ static int launch_job(TrackerEntry *e, const tr_params *p, int disc_phase)
     j->ctx = g.ctx;
     j->ctx.log_ud = j;
     j->ctx.cancel = &j->cancel;
-    if (disc_phase) {
-        /* A dead tracker must not stall the search for an hour of BEP 15 retransmissions:
-         * UDP waits 5 s then 10 s, HTTP 15 s. */
-        j->ctx.udp_base_timeout_ms = 5000;
-        j->ctx.udp_max_retries = 1;
-        j->ctx.http_timeout_ms = 15000;
-    }
+    /* Delays from the Réglages tab. The search uses its own, shorter ones by default so that a
+     * dead tracker does not stall it for an hour of BEP 15 retransmissions. */
+    j->ctx.udp_base_timeout_ms = (disc_phase ? g.cfg.disc_udp_base_s : g.cfg.udp_base_s) * 1000;
+    j->ctx.udp_max_retries = disc_phase ? g.cfg.disc_udp_retries : g.cfg.udp_retries;
+    j->ctx.http_timeout_ms = (disc_phase ? g.cfg.disc_http_s : g.cfg.http_s) * 1000;
 
     log_now(TR_LOG_INFO, "── [%s] Announce (event=%s, numwant=%" PRId32 ", left=%" PRIu64 ") → %s", e->label,
             tr_event_name(p->event), p->numwant, p->left, e->url);
@@ -1312,6 +1421,8 @@ static void start_announce(void)
     }
     tr_params p;
     char err[256];
+    if (!load_settings())
+        return;
     if (!collect_params(&p, err, sizeof err)) {
         set_status(1, "%s", err);
         log_now(TR_LOG_ERROR, "Paramètres invalides : %s", err);
@@ -1326,22 +1437,34 @@ static void start_announce(void)
  * Peer probing
  * ====================================================================== */
 
+static int probe_cancelled(ProbeSession *s)
+{
+    return InterlockedCompareExchange((volatile LONG *)&s->cancel, 0, 0) != 0;
+}
+
+/* Each worker takes the next queued peer; while the queue is open it waits for more. */
 static DWORD WINAPI probe_worker(LPVOID arg)
 {
     ProbeSession *s = arg;
     for (;;) {
-        if (InterlockedCompareExchange((volatile LONG *)&s->cancel, 0, 0))
+        EnterCriticalSection(&s->lock);
+        while (s->next >= s->npeers && !s->closed && !probe_cancelled(s))
+            SleepConditionVariableCS(&s->cv, &s->lock, 200);
+        if (probe_cancelled(s) || s->next >= s->npeers) {
+            LeaveCriticalSection(&s->lock);
             break;
-        size_t i = (size_t)InterlockedIncrement((volatile LONG *)&s->next) - 1;
-        if (i >= s->npeers)
-            break;
+        }
+        size_t i = s->next++;
+        tr_peer peer = s->peers[i];
+        LeaveCriticalSection(&s->lock);
+
         ProbeMsg *m = calloc(1, sizeof *m);
         if (!m)
             break;
         m->session = s;
         m->index = i;
-        probe_peer(s->peers[i].ip, s->peers[i].port, s->info_hash, s->peer_id, s->num_pieces, PROBE_TIMEOUT_MS,
-                   &s->cancel, &m->result);
+        probe_peer(peer.ip, peer.port, s->info_hash, s->peer_id, s->num_pieces, s->timeout_ms, &s->cancel,
+                   &m->result);
         if (!PostMessageW(g.hwnd, WM_APP_PROBE, 0, (LPARAM)m))
             free(m);
     }
@@ -1349,51 +1472,96 @@ static DWORD WINAPI probe_worker(LPVOID arg)
     return 0;
 }
 
-/* Starts probing `peers` in PROBE_THREADS threads. Returns 0 if nothing could start. */
-static int launch_probe(const tr_peer *peers, size_t n, const tr_params *params, size_t num_pieces,
-                        TrackerEntry *entry, uint32_t hist_id, int for_disc)
+/* Appends peers to a running session's queue. */
+static int probe_queue_add(ProbeSession *s, const tr_peer *peers, size_t n)
 {
-    if (g.probe || !n)
+    if (!n)
+        return 0;
+    EnterCriticalSection(&s->lock);
+    int rc = -1;
+    tr_peer *np = realloc(s->peers, (s->npeers + n) * sizeof *np);
+    if (np) {
+        s->peers = np;
+        memcpy(s->peers + s->npeers, peers, n * sizeof *np);
+        s->npeers += n;
+        rc = 0;
+    }
+    LeaveCriticalSection(&s->lock);
+    WakeAllConditionVariable(&s->cv);
+    return rc;
+}
+
+/* No more peers will come: workers stop once the queue is empty. */
+static void probe_queue_close(ProbeSession *s)
+{
+    EnterCriticalSection(&s->lock);
+    s->closed = 1;
+    LeaveCriticalSection(&s->lock);
+    WakeAllConditionVariable(&s->cv);
+}
+
+static void probe_cancel(ProbeSession *s)
+{
+    tr_cancel_set(&s->cancel, 1);
+    WakeAllConditionVariable(&s->cv);
+}
+
+static void probe_session_free(ProbeSession *s)
+{
+    DeleteCriticalSection(&s->lock);
+    free(s->peers);
+    free(s);
+}
+
+/* Starts a probe session with `n` peers. open = 1 keeps the queue open for probe_queue_add
+ * (all threads are started); otherwise it is closed right away. Returns 0 on failure. */
+static int launch_probe(const tr_peer *peers, size_t n, const tr_params *params, size_t num_pieces,
+                        TrackerEntry *entry, uint32_t hist_id, int for_disc, int open)
+{
+    if (g.probe || (!n && !open))
         return 0;
     ProbeSession *s = calloc(1, sizeof *s);
     if (!s)
         return 0;
-    s->peers = malloc(n * sizeof *s->peers);
-    if (!s->peers) {
-        free(s);
-        return 0;
-    }
-    memcpy(s->peers, peers, n * sizeof *s->peers);
-    s->npeers = n;
+    InitializeCriticalSection(&s->lock);
+    InitializeConditionVariable(&s->cv);
     s->entry = entry;
     s->hist_id = hist_id;
     s->for_disc = for_disc;
     memcpy(s->info_hash, params->info_hash, 20);
     memcpy(s->peer_id, params->peer_id, 20);
     s->num_pieces = num_pieces;
+    s->timeout_ms = g.cfg.probe_timeout_s * 1000;
+    if (probe_queue_add(s, peers, n) < 0) {
+        probe_session_free(s);
+        return 0;
+    }
+    s->closed = !open;
 
     g.probe = s;
-    int want = n < PROBE_THREADS ? (int)n : PROBE_THREADS;
-    for (int i = 0; i < want; i++) {
+    int want = g.cfg.probe_threads;
+    if (!open && (size_t)want > n)
+        want = (int)n;
+    for (int i = 0; i < want && i < MAX_PROBE_THREADS; i++) {
         s->threads[s->nthreads] = CreateThread(NULL, 0, probe_worker, s, 0, NULL);
         if (s->threads[s->nthreads])
             s->nthreads++;
     }
     if (!s->nthreads) {
         g.probe = NULL;
-        free(s->peers);
-        free(s);
+        probe_session_free(s);
         set_status(1, "Impossible de créer les threads de sondage.");
         return 0;
     }
-    log_now(TR_LOG_INFO, "Sondage de %zu peer(s) (TCP, handshake BitTorrent, %d connexions en parallèle)%s", n,
-            s->nthreads, num_pieces ? "" : " — nombre de pièces inconnu (pas de .torrent chargé)");
+    log_now(TR_LOG_INFO, "Sondage%s : %d connexion(s) en parallèle, %d s max par peer%s",
+            open ? " au fil de l'eau" : "", s->nthreads, g.cfg.probe_timeout_s,
+            num_pieces ? "" : " — nombre de pièces inconnu (pas de .torrent chargé)");
     return 1;
 }
 
 static void start_probe(void)
 {
-    if (g.probe || !g.shown_entry || !g.nshown)
+    if (g.probe || !g.shown_entry || !g.nshown || !load_settings())
         return;
     hist_entry *h = history_find(&g.shown_entry->hist, g.shown_hist_id);
     if (!h)
@@ -1402,7 +1570,7 @@ static void start_probe(void)
     free(h->probes);
     h->probes = calloc(h->result.npeers, sizeof *h->probes);
     if (!launch_probe(h->result.peers, h->result.npeers, &h->result.params, g.shown_num_pieces, g.shown_entry, h->id,
-                      0)) {
+                      0, 0)) {
         free(h->probes);
         h->probes = NULL;
     }
@@ -1413,7 +1581,7 @@ static void start_probe(void)
 static void stop_probe(void)
 {
     if (g.probe) {
-        tr_cancel_set(&g.probe->cancel, 1);
+        probe_cancel(g.probe);
         log_now(TR_LOG_WARN, "Arrêt du sondage demandé");
     }
 }
@@ -1468,8 +1636,7 @@ static void on_probe_end(ProbeSession *s)
                 s->done, s->npeers, ok, seed, wrong);
     }
     g.probe = NULL;
-    free(s->peers);
-    free(s);
+    probe_session_free(s);
     if (g.closing)
         return;
     if (for_disc)
@@ -1536,10 +1703,12 @@ static void fill_disc(void)
                  "les peers, puis event=stopped.",
                  DISCOVERY_NUMWANT);
     else if (d->phase == 1)
-        snprintf(buf, sizeof buf, "Étape 1/3 : announce à %zu tracker(s)… %d en attente, %zu peer(s) unique(s).",
-                 d->asked, d->pending, d->npeers);
+        snprintf(buf, sizeof buf,
+                 "Étape 1/3 : %d tracker(s) sur %zu en attente ; sondage en parallèle %zu/%zu, %zu joignable(s), "
+                 "%zu seeder(s).",
+                 d->pending, d->asked, d->probed, d->npeers, shown, seeders);
     else if (d->phase == 2)
-        snprintf(buf, sizeof buf, "Étape 2/3 : sondage %zu/%zu… %zu joignable(s), %zu seeder(s).", d->probed,
+        snprintf(buf, sizeof buf, "Étape 2/3 : fin du sondage %zu/%zu… %zu joignable(s), %zu seeder(s).", d->probed,
                  d->npeers, shown, seeders);
     else if (d->phase == 3)
         snprintf(buf, sizeof buf, "Étape 3/3 : retrait des swarms (event=stopped, left=0)… %zu joignable(s).", shown);
@@ -1562,7 +1731,7 @@ static void disc_collect(TrackerEntry *e, const tr_result *r)
         d->ok = ok;
         d->ok[d->nok++] = e;
     }
-    size_t added = 0;
+    size_t first_new = d->npeers;
     for (size_t i = 0; i < r->npeers; i++) {
         const tr_peer *p = &r->peers[i];
         size_t k = 0;
@@ -1580,13 +1749,21 @@ static void disc_collect(TrackerEntry *e, const tr_result *r)
         if (!ns)
             break;
         d->sources = ns;
+        probe_result *pr = realloc(d->probes, (d->npeers + 1) * sizeof *pr);
+        if (!pr)
+            break;
+        d->probes = pr;
+        memset(&d->probes[d->npeers], 0, sizeof *pr); /* PROBE_PENDING */
         d->peers[d->npeers] = *p;
         d->sources[d->npeers] = 1;
         d->npeers++;
-        added++;
     }
-    log_now(TR_LOG_INFO, "Recherche : %s a donné %zu peer(s), %zu nouveau(x) (total %zu)", e->label, r->npeers, added,
-            d->npeers);
+    size_t added = d->npeers - first_new;
+    log_now(TR_LOG_INFO, "Recherche : %s a donné %zu peer(s), %zu nouveau(x) (total %zu), sondés tout de suite",
+            e->label, r->npeers, added, d->npeers);
+    /* Same order as d->peers, so the probe index is the discovery index. */
+    if (added && g.probe && g.probe->for_disc && !d->stop_requested)
+        probe_queue_add(g.probe, d->peers + first_new, added);
 }
 
 static void disc_finish(void)
@@ -1621,10 +1798,20 @@ static void disc_leave(void)
         disc_finish();
 }
 
+/* Step 3 starts once every tracker answered (or gave up) and every peer was probed. */
+static void disc_maybe_leave(void)
+{
+    Discovery *d = g.disc;
+    if (d && (d->phase == 1 || d->phase == 2) && d->announces_done && d->probe_done)
+        disc_leave();
+}
+
 static void disc_probing_done(void)
 {
-    if (g.disc && g.disc->phase == 2)
-        disc_leave();
+    if (!g.disc)
+        return;
+    g.disc->probe_done = 1;
+    disc_maybe_leave();
 }
 
 static void disc_job_finished(int phase)
@@ -1636,17 +1823,15 @@ static void disc_job_finished(int phase)
         fill_disc();
         if (d->pending)
             return;
-        if (d->stop_requested || !d->npeers) {
-            disc_leave();
-            return;
-        }
+        /* All trackers done: no more peers will come, let the probes drain. */
+        d->announces_done = 1;
         d->phase = 2;
-        d->probes = calloc(d->npeers, sizeof *d->probes);
-        log_now(TR_LOG_INFO, "Recherche, étape 2/3 : sondage de %zu peer(s) unique(s)", d->npeers);
-        if (!d->probes || !launch_probe(d->peers, d->npeers, &d->params, d->num_pieces, NULL, 0, 1))
-            disc_leave();
-        else
-            fill_disc();
+        if (g.probe && g.probe->for_disc)
+            probe_queue_close(g.probe);
+        log_now(TR_LOG_INFO, "Recherche, étape 2/3 : tous les trackers ont répondu, fin du sondage (%zu/%zu)",
+                d->probed, d->npeers);
+        fill_disc();
+        disc_maybe_leave();
     } else if (phase == 3 && d->phase == 3 && !d->pending) {
         disc_finish();
     }
@@ -1654,7 +1839,7 @@ static void disc_job_finished(int phase)
 
 static void disc_start(void)
 {
-    if (g.running || g.probe || disc_running())
+    if (g.running || g.probe || disc_running() || !load_settings())
         return;
     tr_params p;
     char err[256];
@@ -1673,8 +1858,16 @@ static void disc_start(void)
     d->params = p;
     d->num_pieces = pieces_for(p.info_hash);
     d->phase = 1;
-    log_now(TR_LOG_INFO, "Recherche des peers joignables, étape 1/3 : announce à tous les trackers (numwant=%d)",
+    log_now(TR_LOG_INFO,
+            "Recherche des peers joignables, étape 1/3 : announce à tous les trackers (numwant=%d), peers sondés dès "
+            "qu'ils arrivent",
             DISCOVERY_NUMWANT);
+    /* The probe pool starts empty and open: each tracker answer feeds it. */
+    if (!launch_probe(NULL, 0, &p, d->num_pieces, NULL, 0, 1, 1)) {
+        disc_free(g.disc);
+        g.disc = NULL;
+        return;
+    }
     for (size_t i = 0; i < g.ntrackers; i++) {
         if (strcmp(g.trackers[i]->transport, "invalide") == 0)
             continue;
@@ -1684,8 +1877,9 @@ static void disc_start(void)
     d->asked = (size_t)d->pending;
     if (!d->pending) {
         set_status(1, "Aucun tracker valide à interroger.");
-        disc_free(g.disc);
-        g.disc = NULL;
+        /* Let the empty probe pool end; its end handler sees no discovery running. */
+        d->phase = 4;
+        probe_queue_close(g.probe);
         return;
     }
     set_status(0, "Recherche en cours : %zu tracker(s) interrogé(s)…", d->asked);
@@ -1702,13 +1896,11 @@ static void disc_stop(void)
         return;
     d->stop_requested = 1;
     log_now(TR_LOG_WARN, "Arrêt de la recherche demandé (les trackers déjà contactés recevront event=stopped)");
-    if (d->phase == 1) {
-        for (size_t i = 0; i < g.ntrackers; i++)
-            if (g.trackers[i]->job && g.trackers[i]->job->disc_phase == 1)
-                tr_cancel_set(&g.trackers[i]->job->cancel, 1);
-    } else if (d->phase == 2 && g.probe) {
-        tr_cancel_set(&g.probe->cancel, 1);
-    }
+    for (size_t i = 0; i < g.ntrackers; i++)
+        if (g.trackers[i]->job && g.trackers[i]->job->disc_phase == 1)
+            tr_cancel_set(&g.trackers[i]->job->cancel, 1);
+    if (g.probe && g.probe->for_disc)
+        probe_cancel(g.probe);
 }
 
 static void copy_reachable(void)
@@ -1772,9 +1964,17 @@ static void clear_history(void)
 
 static void show_tab(int i)
 {
-    int sw[5] = { SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE };
-    if (i >= 0 && i < 5)
+    int sw[6] = { SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE, SW_HIDE };
+    if (i >= 0 && i < 6)
         sw[i] = SW_SHOW;
+    for (int k = 0; k < SET_COUNT; k++) {
+        ShowWindow(g.set_lbl[k], sw[5]);
+        ShowWindow(g.set_edit[k], sw[5]);
+    }
+    ShowWindow(g.set_reset, sw[5]);
+    ShowWindow(g.set_note, sw[5]);
+    if (i == 5)
+        update_settings_note();
     ShowWindow(g.disc_label, sw[4]);
     ShowWindow(g.disc_copy, sw[4]);
     ShowWindow(g.disc_lv, sw[4]);
@@ -1916,8 +2116,8 @@ static void create_controls(void)
     g.history_lv = make_listview(ID_HISTORY_LV, h_cols, h_w, 7);
 
     g.tab = ctl(0, WC_TABCONTROLW, L"", WS_CLIPSIBLINGS | WS_TABSTOP, ID_TAB);
-    static const wchar_t *const tabs[] = { L"Réponse", L"Requête", L"Peers", L"Raw", L"Joignables" };
-    for (int i = 0; i < 5; i++) {
+    static const wchar_t *const tabs[] = { L"Réponse", L"Requête", L"Peers", L"Raw", L"Joignables", L"Réglages" };
+    for (int i = 0; i < 6; i++) {
         TCITEMW ti;
         memset(&ti, 0, sizeof ti);
         ti.mask = TCIF_TEXT;
@@ -1944,6 +2144,17 @@ static void create_controls(void)
                                              L"Complétion", L"Client", L"peer_id" };
     static const int d_w[] = { 36, 140, 55, 65, 140, 140, 160 };
     g.disc_lv = make_listview(ID_DISC_LV, d_cols, d_w, 7);
+
+    for (int i = 0; i < SET_COUNT; i++) {
+        wchar_t *w = utf8_to_wide(settings_fields[i].label);
+        g.set_lbl[i] = label(w ? w : L"");
+        free(w);
+        g.set_edit[i] = ctl(WS_EX_CLIENTEDGE, WC_EDITW, L"", ES_NUMBER | ES_AUTOHSCROLL | WS_TABSTOP, ID_SET_FIRST + i);
+    }
+    g.set_reset = button(L"Valeurs par défaut", ID_SET_RESET);
+    g.set_note = ctl(0, WC_STATICW, L"", SS_LEFT | SS_NOPREFIX, ID_LABEL);
+    g.cfg = default_settings;
+    settings_to_edits(&g.cfg);
 
     g.lbl_log = label(L"Journal");
     g.log = ctl(WS_EX_CLIENTEDGE, MSFTEDIT_CLASS, L"",
@@ -2095,6 +2306,15 @@ static void layout(void)
     mv(g.disc_copy, tr.left + gap, tr.top + gap, dcw, RH);
     mv(g.disc_label, tr.left + dcw + 3 * gap, tr.top + gap, pw - dcw - 4 * gap, RH);
     mv(g.disc_lv, tr.left, tr.top + RH + 2 * gap, pw, ph - RH - 2 * gap);
+    int sy = tr.top + 2 * gap, slw = S(340), sew = S(80);
+    for (int i = 0; i < SET_COUNT; i++) {
+        mv(g.set_lbl[i], tr.left + 2 * gap, sy, slw, RH);
+        mv(g.set_edit[i], tr.left + 2 * gap + slw, sy, sew, RH);
+        sy += RH + gap;
+    }
+    mv(g.set_reset, tr.left + 2 * gap + slw, sy + gap, S(160), BH);
+    sy += BH + 3 * gap;
+    mv(g.set_note, tr.left + 2 * gap, sy, pw - 4 * gap, S(70));
 
     /* Log */
     mv(g.lbl_log, M, logTop, W - 2 * M, RH);
@@ -2156,6 +2376,11 @@ static void on_command(int id, int code)
             fill_peers();
         return;
     }
+    if (id >= ID_SET_FIRST && id <= ID_SET_LAST) {
+        if (code == EN_CHANGE && g.set_note)
+            update_settings_note();
+        return;
+    }
     switch (id) {
     case ID_OPEN:
         open_dialog();
@@ -2191,6 +2416,12 @@ static void on_command(int id, int code)
             disc_stop();
         else
             disc_start();
+        break;
+    case ID_SET_RESET:
+        g.cfg = default_settings;
+        settings_to_edits(&g.cfg);
+        update_settings_note();
+        set_status(0, "Réglages remis par défaut.");
         break;
     case ID_DISC_COPY:
         copy_reachable();
@@ -2253,7 +2484,7 @@ static void shutdown_workers(void)
         if (g.trackers[i]->job)
             tr_cancel_set(&g.trackers[i]->job->cancel, 1);
     if (g.probe)
-        tr_cancel_set(&g.probe->cancel, 1);
+        probe_cancel(g.probe);
     MSG msg;
     for (;;) {
         if (PeekMessageW(&msg, g.hwnd, WM_APP_LOG, WM_APP_PROBE_END, PM_REMOVE))

@@ -18,7 +18,7 @@ voit :
 - **Requête** : l'URL HTTP finale (bouton copier) ou, en UDP, l'adresse résolue et les paquets connect/announce
   envoyés, champ par champ + hex dump ;
 - **Peers** : IP, port, peer_id (si fourni), avec une recherche (IP, port, peer_id, client…) ; le bouton
-  **Sonder les peers** se connecte à chacun (TCP, handshake BitTorrent, 16 en parallèle, 5 s max par peer) et
+  **Sonder les peers** se connecte à chacun (TCP, handshake BitTorrent, 64 en parallèle, 3 s max par peer) et
   affiche s'il est joignable, son pourcentage de complétion (`bitfield` / `have` / `have_all` / `have_none`),
   les seeders en vert, son client (handshake étendu BEP 10 ou peer_id) et ses extensions. Rien n'est téléchargé.
   Les résultats restent attachés à l'announce dans l'historique. Le pourcentage exact demande le `.torrent`
@@ -32,12 +32,23 @@ Le bouton **Trouver les peers joignables** enchaîne trois étapes et affiche le
 
 1. announce `started` à **tous** les trackers du torrent en parallèle avec `numwant=200`, puis fusion des peers
    sans doublons (la colonne *Trackers* indique combien de trackers ont donné chaque peer) ;
-2. sondage de tous ces peers (32 connexions en parallèle) ; seuls les joignables sont gardés ;
+2. sondage de tous ces peers, **dès qu'un tracker répond** (sans attendre le plus lent) ; seuls les joignables
+   sont gardés ;
 3. announce `event=stopped`, `left=0` aux trackers qui ont répondu, pour quitter proprement les swarms
    (`stopped` plutôt que `completed`, qui fausserait le compteur de téléchargements et t'afficherait comme seeder).
 
-Pendant cette recherche, un tracker qui ne répond pas est abandonné vite (UDP : 5 s puis 10 s ; HTTP : 15 s).
 **Arrêter la recherche** saute le reste du sondage mais envoie quand même le `stopped`.
+
+L'onglet **Réglages** permet de changer les délais (vérifiés avant chaque action, avec la durée maximale
+qu'ils impliquent) :
+
+| Réglage | Défaut |
+|---|---|
+| Announce manuel, UDP : premier délai / retransmissions max | 15 s / 8 (BEP 15, soit ~2 h pour un tracker muet) |
+| Announce manuel, HTTP : timeout | 30 s |
+| Recherche, UDP : premier délai / retransmissions max | 5 s / 1 (15 s max) |
+| Recherche, HTTP : timeout | 15 s |
+| Sondage : timeout par peer / connexions en parallèle | 3 s / 64 |
 
 Les announces tournent en arrière-plan : on peut en lancer plusieurs en même temps vers des trackers différents
 (un seul à la fois par tracker), et **Annuler** agit sur le tracker sélectionné.
