@@ -9,6 +9,7 @@
 #include <richedit.h>
 #include <shellapi.h>
 
+#include <ctype.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -65,6 +66,7 @@ enum {
     ID_COPY_REQ,
     ID_REQ_EDIT,
     ID_PEERS_LABEL,
+    ID_PEERS_SEARCH,
     ID_PEERS_LV,
     ID_RAW_EDIT,
     ID_LOG,
@@ -124,9 +126,15 @@ static struct {
         cb_event, lbl_port, e_port, lbl_numwant, e_numwant, lbl_up, e_uploaded, lbl_down, e_downloaded, lbl_left,
         e_left, chk_compact, chk_noverify;
     HWND announce, cancel, status;
-    HWND lbl_history, clear_hist, history_lv, tab, resp_lv, copy_req, req_edit, peers_label, peers_lv, raw_edit;
+    HWND lbl_history, clear_hist, history_lv, tab, resp_lv, copy_req, req_edit, peers_label, peers_search, peers_lv,
+        raw_edit;
     HWND lbl_log, log;
     int status_err;
+
+    /* Copy of the peers of the announce on display (the search box filters them). */
+    tr_peer *shown_peers;
+    size_t nshown;
+    size_t shown_trailing;
 
     torrent_info tor;
     int has_torrent;
@@ -517,6 +525,78 @@ static int field_applies(int f, tr_transport t)
     return f != F_HTTP_CODE && f != F_MIN_INTERVAL && f != F_TRACKER_ID && f != F_WARNING;
 }
 
+/* Case-insensitive (ASCII) substring test. */
+static int ci_contains(const char *hay, const char *needle)
+{
+    size_t n = strlen(needle);
+    if (!n)
+        return 1;
+    for (; *hay; hay++) {
+        size_t i = 0;
+        while (i < n && hay[i] && tolower((unsigned char)hay[i]) == tolower((unsigned char)needle[i]))
+            i++;
+        if (i == n)
+            return 1;
+    }
+    return 0;
+}
+
+/* Fills the Peers table from shown_peers, keeping the rows that match the search box. */
+static void fill_peers(void)
+{
+    char *filter = get_trimmed(g.peers_search);
+    size_t shown = 0;
+    SendMessageW(g.peers_lv, WM_SETREDRAW, FALSE, 0);
+    ListView_DeleteAllItems(g.peers_lv);
+    for (size_t i = 0; i < g.nshown; i++) {
+        const tr_peer *p = &g.shown_peers[i];
+        char idx[16], port[8], pid[100], addr[96];
+        snprintf(idx, sizeof idx, "%zu", i + 1);
+        snprintf(port, sizeof port, "%u", p->port);
+        snprintf(addr, sizeof addr, strchr(p->ip, ':') ? "[%s]:%u" : "%s:%u", p->ip, p->port);
+        if (p->peer_id_len)
+            tr_peer_id_str(p->peer_id, p->peer_id_len, pid, sizeof pid);
+        else
+            snprintf(pid, sizeof pid, "—");
+        if (filter[0] && !ci_contains(addr, filter) && !(p->peer_id_len && ci_contains(pid, filter)))
+            continue;
+        const char *cols[] = { idx, p->ip, port, pid };
+        lv_add(g.peers_lv, C_NORMAL, 4, cols);
+        shown++;
+    }
+    SendMessageW(g.peers_lv, WM_SETREDRAW, TRUE, 0);
+
+    char buf[256];
+    if (!g.nshown && !g.shown_trailing)
+        snprintf(buf, sizeof buf, "Aucun peer.");
+    else if (filter[0])
+        snprintf(buf, sizeof buf, "%zu peer(s) affiché(s) sur %zu", shown, g.nshown);
+    else
+        snprintf(buf, sizeof buf, "%zu peer(s). Double-clic pour copier ip:port.", g.nshown);
+    if (g.shown_trailing) {
+        size_t len = strlen(buf);
+        snprintf(buf + len, sizeof buf - len, " Attention : %zu octet(s) en trop dans la liste compacte.",
+                 g.shown_trailing);
+    }
+    set_text(g.peers_label, buf);
+    free(filter);
+}
+
+static void set_shown_peers(const tr_peer *peers, size_t n, size_t trailing)
+{
+    free(g.shown_peers);
+    g.shown_peers = NULL;
+    g.nshown = 0;
+    if (n) {
+        g.shown_peers = malloc(n * sizeof *g.shown_peers);
+        if (g.shown_peers) {
+            memcpy(g.shown_peers, peers, n * sizeof *g.shown_peers);
+            g.nshown = n;
+        }
+    }
+    g.shown_trailing = trailing;
+}
+
 static void clear_details(void)
 {
     ListView_DeleteAllItems(g.resp_lv);
@@ -526,6 +606,7 @@ static void clear_details(void)
     }
     set_edit_text(g.req_edit, "");
     set_edit_text(g.raw_edit, "");
+    set_shown_peers(NULL, 0, 0);
     ListView_DeleteAllItems(g.peers_lv);
     set_text(g.peers_label, "Aucun announce sélectionné");
     free(g.copy_text);
@@ -616,28 +697,8 @@ static void show_result(const tr_result *r)
     set_edit_text(g.raw_edit, raw);
     free(raw);
 
-    SendMessageW(g.peers_lv, WM_SETREDRAW, FALSE, 0);
-    ListView_DeleteAllItems(g.peers_lv);
-    for (size_t i = 0; i < r->npeers; i++) {
-        const tr_peer *p = &r->peers[i];
-        char idx[16], port[8], pid[100];
-        snprintf(idx, sizeof idx, "%zu", i + 1);
-        snprintf(port, sizeof port, "%u", p->port);
-        if (p->peer_id_len)
-            tr_peer_id_str(p->peer_id, p->peer_id_len, pid, sizeof pid);
-        else
-            snprintf(pid, sizeof pid, "—");
-        const char *cols[] = { idx, p->ip, port, pid };
-        lv_add(g.peers_lv, C_NORMAL, 4, cols);
-    }
-    SendMessageW(g.peers_lv, WM_SETREDRAW, TRUE, 0);
-    char buf[200];
-    if (r->peers_trailing)
-        snprintf(buf, sizeof buf, "%zu peer(s) — attention : %zu octet(s) en trop dans la liste compacte", r->npeers,
-                 r->peers_trailing);
-    else
-        snprintf(buf, sizeof buf, "%zu peer(s). Double-clic pour copier ip:port.", r->npeers);
-    set_text(g.peers_label, buf);
+    set_shown_peers(r->peers, r->npeers, r->peers_trailing);
+    fill_peers();
 }
 
 static void show_selected_history(void)
@@ -1078,6 +1139,7 @@ static void show_tab(int i)
     ShowWindow(g.copy_req, sw[1]);
     ShowWindow(g.req_edit, sw[1]);
     ShowWindow(g.peers_label, sw[2]);
+    ShowWindow(g.peers_search, sw[2]);
     ShowWindow(g.peers_lv, sw[2]);
     ShowWindow(g.raw_edit, sw[3]);
 }
@@ -1222,6 +1284,8 @@ static void create_controls(void)
     g.copy_req = button(L"Copier l'URL / la requête", ID_COPY_REQ);
     g.req_edit = text_view(ID_REQ_EDIT, 1);
     g.peers_label = label(L"");
+    g.peers_search = edit(ID_PEERS_SEARCH);
+    SendMessageW(g.peers_search, EM_SETCUEBANNER, TRUE, (LPARAM)L"Rechercher (IP, port, peer_id)…");
     static const wchar_t *const p_cols[] = { L"#", L"IP", L"Port", L"peer_id" };
     static const int p_w[] = { 50, 220, 70, 200 };
     g.peers_lv = make_listview(ID_PEERS_LV, p_cols, p_w, 4);
@@ -1364,7 +1428,9 @@ static void layout(void)
     mv(g.resp_lv, tr.left, tr.top, pw, ph);
     mv(g.copy_req, tr.left + gap, tr.top + gap, S(220), BH);
     mv(g.req_edit, tr.left, tr.top + BH + 2 * gap, pw, ph - BH - 2 * gap);
-    mv(g.peers_label, tr.left + gap, tr.top + gap, pw - 2 * gap, RH);
+    int sw = S(280);
+    mv(g.peers_search, tr.left + gap, tr.top + gap, sw, RH);
+    mv(g.peers_label, tr.left + sw + 3 * gap, tr.top + gap, pw - sw - 4 * gap, RH);
     mv(g.peers_lv, tr.left, tr.top + RH + 2 * gap, pw, ph - RH - 2 * gap);
     mv(g.raw_edit, tr.left, tr.top, pw, ph);
 
@@ -1419,8 +1485,13 @@ static LRESULT on_notify(NMHDR *nh)
     return 0;
 }
 
-static void on_command(int id)
+static void on_command(int id, int code)
 {
+    if (id == ID_PEERS_SEARCH) {
+        if (code == EN_CHANGE)
+            fill_peers();
+        return;
+    }
     switch (id) {
     case ID_OPEN:
         open_dialog();
@@ -1531,7 +1602,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_NOTIFY:
         return on_notify((NMHDR *)lp);
     case WM_COMMAND:
-        on_command(LOWORD(wp));
+        on_command(LOWORD(wp), HIWORD(wp));
         return 0;
     case WM_DROPFILES: {
         HDROP drop = (HDROP)wp;
@@ -1623,6 +1694,7 @@ int ui_run(HINSTANCE inst, int show)
     if (g.has_torrent)
         torrent_free(&g.tor);
     free(g.copy_text);
+    free(g.shown_peers);
     DeleteObject(g.font);
     DeleteObject(g.font_bold);
     DeleteObject(g.font_mono);
